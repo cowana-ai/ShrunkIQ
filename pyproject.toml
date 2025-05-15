@@ -1,0 +1,36 @@
+[project]
+name = "shrunkiq"
+version = "0.1.0"
+description = "ShrunkIQ Project"
+authors = [
+    {name = "Chingis Owana", email = "chingisoinar@gmail.com"},
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9,<3.12"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+    "langchain>=0.0.27",
+    "langchain-openai>=0.3.15",
+    "numpy>=1.24.4",
+    "openai>=1.78.1",
+    "pdf2image>=1.17.0",
+    "pytesseract>=0.3.13",
+    "pymupdf>=1.25.5",
+    "opencv-python-headless>=4.11.0.86",
+]
+
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
+
+
