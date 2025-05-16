@@ -1,8 +1,7 @@
 import base64
 import io
-from typing import List, Tuple, Union
+from typing import List, Tuple
 from PIL import Image
-import pytesseract
 import fitz
 
 def pil_image_to_base64(image: Image.Image, format: str = "PNG") -> str:
@@ -37,24 +36,4 @@ def pdf_to_images(pdf_path: str, zoom: float = 2.0) -> List[Tuple[int, Image.Ima
         pix = page.get_pixmap(matrix=mat)
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         images.append((i, img, page))
-    return images
-
-def pytesseract_ocr(image: Union[Image.Image, str], lang: str = "eng") -> str:
-    """Perform OCR on an image using pytesseract.
-    
-    Args:
-        image (Union[Image.Image, str]): PIL Image or path to image file
-        lang (str, optional): Language for OCR. Defaults to "eng".
-    
-    Returns:
-        str: Extracted text from the image
-    """
-    if isinstance(image, str):
-        image = Image.open(image)
-    
-    # Ensure image is in RGB mode for better OCR results
-    if image.mode != 'RGB':
-        image = image.convert('RGB')
-    
-    text = pytesseract.image_to_string(image, lang=lang)
-    return text.strip() 
+    return images 

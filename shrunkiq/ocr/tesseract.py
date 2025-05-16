@@ -1,0 +1,41 @@
+import pytesseract
+from typing import Union, Optional
+from PIL import Image
+from .base import BaseOCR
+
+class TesseractOCR(BaseOCR):
+    """Tesseract OCR implementation."""
+    
+    def __init__(self, lang: str = "eng", config: Optional[str] = None):
+        """Initialize TesseractOCR.
+        
+        Args:
+            lang (str, optional): Language for OCR. Defaults to "eng".
+            config (Optional[str], optional): Custom Tesseract configuration. Defaults to None.
+        """
+        self.lang = lang
+        self.config = config
+    
+    def extract_text(self, image: Union[Image.Image, str], **kwargs) -> str:
+        """Extract text from an image using Tesseract.
+        
+        Args:
+            image (Union[Image.Image, str]): PIL Image or path to image file
+            **kwargs: Additional arguments passed to pytesseract.image_to_string
+            
+        Returns:
+            str: Extracted text from the image
+        """
+        image = self._prepare_image(image)
+        
+        # Override default language if provided in kwargs
+        lang = kwargs.pop('lang', self.lang)
+        config = kwargs.pop('config', self.config)
+        
+        text = pytesseract.image_to_string(
+            image,
+            lang=lang,
+            config=config,
+            **kwargs
+        )
+        return text.strip() 
