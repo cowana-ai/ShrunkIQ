@@ -21,7 +21,7 @@ class TesseractOCR(BaseOCR):
         # Set Tesseract executable path
         if tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
-        elif os.getenv('TESSERACT_CMD'):
+        elif os.getenv('TESSERACT_CMD') is not None:
             pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD')
    
     
