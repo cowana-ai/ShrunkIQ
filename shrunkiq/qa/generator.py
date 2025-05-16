@@ -1,8 +1,8 @@
 from typing import List, Optional
-from .base import BaseQA
+from shrunkiq.qa.base import BaseQA
 from PIL import Image
 from shrunkiq.utils import pil_image_to_base64
-from .models import QAPair, QAResponse
+from shrunkiq.qa.models import QAPair, QAResponse
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
 

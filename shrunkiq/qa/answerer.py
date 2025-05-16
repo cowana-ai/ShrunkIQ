@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any
-from .base import BaseQA
-from .models import ExtractiveQAResponse
+from shrunkiq.qa.base import BaseQA
+from shrunkiq.qa.models import ExtractiveQAResponse
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
 

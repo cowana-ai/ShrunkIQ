@@ -2,7 +2,7 @@ import pytesseract
 import os
 from typing import Union, Optional
 from PIL import Image
-from .base import BaseOCR
+from shrunkiq.ocr.base import BaseOCR
 
 class TesseractOCR(BaseOCR):
     """Tesseract OCR implementation."""
