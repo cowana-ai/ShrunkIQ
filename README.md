@@ -57,6 +57,72 @@ ShrunkIQ evaluates document quality by comparing a processed version (e.g., comp
 This approach allows for a fair comparison, as it measures the *additional* loss of information due to processing, beyond the baseline imperfections of automated document understanding.
 
 # 📦 Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://your-repository-url/ShrunkIQ.git # Replace with your actual repo URL
+    cd ShrunkIQ
+    ```
+
+2.  **Install Tesseract OCR:**
+    ShrunkIQ relies on Tesseract OCR for text extraction. Please ensure it's installed on your system and accessible in your PATH.
+    *   **macOS:** `brew install tesseract`
+    *   **Ubuntu/Debian:** `sudo apt-get install tesseract-ocr`
+    *   **Windows:** Download from the [official Tesseract at UB Mannheim page](https://github.com/UB-Mannheim/tesseract/wiki).
+    Ensure you also install the language data packs needed (e.g., English: `tesseract-ocr-eng`).
+
+3.  **Set up a Python environment and install ShrunkIQ:**
+    It's highly recommended to use a virtual environment manager like `uv` or `conda`.
+    If using `uv` (recommended):
+    ```bash
+    # Create and activate a virtual environment (if you haven't already)
+    uv venv
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+    
+    # Install ShrunkIQ in editable mode (recommended for development)
+    uv pip install -e .
+    ```
+    This will install ShrunkIQ and its dependencies, including the `shrunkiq` command-line tool.
+    If you have an OpenAI API key or other credentials, ensure they are set in your environment or a `.env` file (see CLI Usage).
+
+# 🚀 CLI Usage
+
+Once installed, ShrunkIQ provides a command-line interface for easy evaluation.
+
+**Command Structure:**
+```bash
+shrunkiq [global_options] evaluate <original_pdf_path> --compressed_pdf <compressed_pdf_path> [evaluate_options]
+```
+
+**Global Options:**
+*   `--env_path <path_to_env_file>`: Path to a custom `.env` file for loading environment variables (e.g., API keys). If not provided, it defaults to looking for a `.env` file in the current or parent directories.
+
+**`evaluate` Command Arguments & Options:**
+*   `<original_pdf_path>`: (Required) Path to the original, high-fidelity PDF file.
+*   `--compressed_pdf <path>` or `-c <path>`: (Required) Path to the compressed or processed PDF file to be evaluated.
+*   `--num_questions_per_page <int>` or `-n <int>`: (Optional) Number of questions to generate per page for the ground truth. Default: `3`.
+*   `--zoom <float>` or `-z <float>`: (Optional) Zoom factor for OCR rendering when processing PDFs. Default: `2.0`.
+
+**Example:**
+```bash
+shrunkiq evaluate ./docs/original_report.pdf \
+  --compressed_pdf ./docs/compressed_report_q50.pdf \
+  -n 5 \
+  -z 2.
+```
+
+This command will:
+1.  Establish a baseline using `original_report.pdf`, generating 5 questions per page with an OCR zoom factor of 2..
+2.  Evaluate `compressed_report_q50.pdf` against this baseline using the same zoom factor.
+3.  Print the baseline metrics, followed by the normalized and relative degradation metrics for the compressed document.
+
+To see all available options:
+```bash
+shrunkiq --help
+shrunkiq evaluate --help
+```
+
+# 🤝 Contributing
 [WIP]
 
 # 📄 License
