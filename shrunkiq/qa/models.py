@@ -1,8 +1,5 @@
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    from shrunkiq.qa.evaluator import PDFEvaluator # For type hinting, if needed later
 
 class QAPair(BaseModel):
     """A question-answer pair with assertion."""

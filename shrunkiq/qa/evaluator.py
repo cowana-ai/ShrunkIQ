@@ -333,6 +333,10 @@ class PDFEvaluator:
         evaluation_result = self.evaluate(
             self.ground_truth_for_comparison, predictions
         )
-        print(f"Document evaluated. Average BERTScore F1: {evaluation_result.average_f1}")
-        return evaluation_result
-    
+        
+        normalized_evaluation_result: dict[str, float] = evaluation_result.normalize_scores(self.baseline_evaluation_result)
+        metrics = list(normalized_evaluation_result.keys())
+        for metric in metrics:
+            relative_degradation = 1 - max(normalized_evaluation_result[metric], 0)
+            normalized_evaluation_result[f"relative_degradation_{metric}"] = relative_degradation
+        return normalized_evaluation_result
