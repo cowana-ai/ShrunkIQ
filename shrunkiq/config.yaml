@@ -1,0 +1,16 @@
+ocr:
+  model: 
+    _target_: shrunkiq.ocr.tesseract.TesseractOCR
+    lang: "eng"
+    config: null
+    tesseract_cmd: null
+
+qa:
+  generator:
+    _target_: shrunkiq.qa.generator.QAGenerator
+    model_name: "gpt-4o-mini"
+    temperature: 0.0
+  answerer:
+    _target_: shrunkiq.qa.answerer.QuestionAnswerer
+    model_name: "gpt-4o-mini"
+    temperature: 0.0

@@ -10,28 +10,24 @@ from shrunkiq.qa.models import (
     GroundTruth, Predictions, EvaluationMetric, QuestionEvaluation, EvaluationResult
 )
 from shrunkiq.metrics import compute_bertscore
+from omegaconf import DictConfig
+from hydra.utils import instantiate
 
 class PDFEvaluator:
     """Evaluate PDF documents using OCR and QA capabilities."""
     
     def __init__(
         self,
-        ocr_engine: Optional[BaseOCR] = None,
-        qa_generator: Optional[QAGenerator] = None,
-        qa_answerer: Optional[QuestionAnswerer] = None,
-        **kwargs: Any
+        config: DictConfig,
     ):
         """Initialize PDFEvaluator.
         
         Args:
-            ocr_engine (Optional[BaseOCR], optional): OCR engine. Defaults to TesseractOCR.
-            qa_generator (Optional[QAGenerator], optional): QA generator. Defaults to new instance.
-            qa_answerer (Optional[QuestionAnswerer], optional): QA answerer. Defaults to new instance.
-            **kwargs: Additional arguments for QA components
+            config (DictConfig): Configuration for the evaluator
         """
-        self.ocr = ocr_engine or TesseractOCR()
-        self.generator = qa_generator or QAGenerator(**kwargs)
-        self.answerer = qa_answerer or QuestionAnswerer(**kwargs)
+        self.ocr = instantiate(config.ocr.model)
+        self.generator = instantiate(config.qa.generator)
+        self.answerer = instantiate(config.qa.answerer)
         self.ground_truth_for_comparison: Optional[GroundTruth] = None
         self.baseline_evaluation_result: Optional[EvaluationResult] = None
     
