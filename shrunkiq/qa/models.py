@@ -1,5 +1,8 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from shrunkiq.qa.evaluator import PDFEvaluator # For type hinting, if needed later
 
 class QAPair(BaseModel):
     """A question-answer pair with assertion."""
@@ -87,8 +90,56 @@ class EvaluationResult(BaseModel):
     
     @property
     def average_f1(self) -> float:
-        """Get the average F1 score from the overall metrics."""
+        """Get the average F1 score (bertscore_f1_mean) from the overall metrics."""
         for metric in self.overall_metrics:
-            if metric.name == "bertscore_f1":
+            if metric.name == "bertscore_f1_mean":
                 return metric.value
-        return 0.0 
+        return 0.0
+
+    def get_metric_value(self, metric_name: str) -> Optional[float]:
+        """Retrieve a specific metric value from overall_metrics."""
+        for metric in self.overall_metrics:
+            if metric.name == metric_name:
+                return metric.value
+        return None
+
+    def normalize_scores(self, baseline_eval_result: 'EvaluationResult') -> Dict[str, Any]:
+        """
+        Normalizes the current evaluation scores against a baseline evaluation result.
+        Calculates ratios for key metrics like 'bertscore_f1_mean' and 'exact_match_accuracy'.
+
+        Args:
+            baseline_eval_result (EvaluationResult): The baseline evaluation result to normalize against.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing normalized scores. 
+                            Metrics that cannot be normalized (e.g., baseline is 0) will be omitted
+                            or set to a specific value like None or an error string.
+        """
+        normalized_metrics: Dict[str, Any] = {}
+
+        metrics_to_normalize = [
+            "bertscore_f1_mean",
+            "exact_match_accuracy",
+            "answer_rate"
+        ]
+
+        for metric_name in metrics_to_normalize:
+            current_value = self.get_metric_value(metric_name)
+            baseline_value = baseline_eval_result.get_metric_value(metric_name)
+
+            if current_value is not None and baseline_value is not None:
+                if baseline_value == 0:
+                    # Avoid division by zero. 
+                    # If current is also 0, could be 1.0 (no change), or undefined.
+                    # If current is non-zero, it's an infinite improvement (or decline if negative).
+                    # For now, let's mark as 'undefined' or skip.
+                    normalized_metrics[f"normalized_{metric_name}"] = None
+                else:
+                    normalized_metrics[f"normalized_{metric_name}"] = current_value / baseline_value
+            else:
+                raise ValueError(f"Metric {metric_name} is not present in both evaluation results")
+            # If current_value is None, it won't be included, which is fine.
+
+        # You could also calculate absolute differences or other comparative stats here.
+        return normalized_metrics 
