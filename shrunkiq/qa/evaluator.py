@@ -1,49 +1,46 @@
-from typing import List, Dict, Optional, Any, Union, Tuple
-import uuid
 import numpy as np
-from shrunkiq.ocr import BaseOCR, TesseractOCR
-from shrunkiq.qa.generator import QAGenerator
-from shrunkiq.qa.answerer import QuestionAnswerer
-from shrunkiq.utils import pdf_to_images
-from shrunkiq.qa.models import (
-    PageContent, Question, GroundTruthAnswer, Prediction,
-    GroundTruth, Predictions, EvaluationMetric, QuestionEvaluation, EvaluationResult
-)
-from shrunkiq.metrics import compute_bertscore
-from omegaconf import DictConfig
 from hydra.utils import instantiate
+from omegaconf import DictConfig
+
+from shrunkiq.metrics import compute_bertscore
+from shrunkiq.qa.models import (EvaluationMetric, EvaluationResult,
+                                GroundTruth, GroundTruthAnswer, PageContent,
+                                Prediction, Predictions, Question,
+                                QuestionEvaluation)
+from shrunkiq.utils import pdf_to_images
+
 
 class PDFEvaluator:
     """Evaluate PDF documents using OCR and QA capabilities."""
-    
+
     def __init__(
         self,
         config: DictConfig,
     ):
         """Initialize PDFEvaluator.
-        
+
         Args:
             config (DictConfig): Configuration for the evaluator
         """
         self.ocr = instantiate(config.ocr.model)
         self.generator = instantiate(config.qa.generator)
         self.answerer = instantiate(config.qa.answerer)
-        self.ground_truth_for_comparison: Optional[GroundTruth] = None
-        self.baseline_evaluation_result: Optional[EvaluationResult] = None
-    
-    def extract_pdf_content(self, pdf_path: str, zoom: float = 2.0) -> List[PageContent]:
+        self.ground_truth_for_comparison: GroundTruth | None = None
+        self.baseline_evaluation_result: EvaluationResult | None = None
+
+    def extract_pdf_content(self, pdf_path: str, zoom: float = 2.0) -> list[PageContent]:
         """Extract text content from a PDF document using OCR.
-        
+
         Args:
             pdf_path (str): Path to the PDF file
             zoom (float, optional): Zoom factor for PDF rendering. Defaults to 2.0.
-            
+
         Returns:
             List[PageContent]: List of page content with extracted text
         """
         pages = pdf_to_images(pdf_path, zoom=zoom)
         page_contents = []
-        
+
         for page_num, page_img, _ in pages:
             page_text = self.ocr.extract_text(page_img)
             page_contents.append(
@@ -52,9 +49,9 @@ class PDFEvaluator:
                     text=page_text
                 )
             )
-        
+
         return page_contents
-    
+
     def generate_ground_truth(
         self,
         pdf_path: str,
@@ -62,34 +59,34 @@ class PDFEvaluator:
         zoom: float = 2.0
     ) -> GroundTruth:
         """Generate ground truth QA pairs from a PDF document.
-        
+
         Args:
             pdf_path (str): Path to the PDF file
             num_questions_per_page (int, optional): Number of questions per page. Defaults to 3.
             zoom (float, optional): Zoom factor for PDF rendering. Defaults to 2.0.
-            
+
         Returns:
             GroundTruth: Ground truth with questions and answers
         """
         pages = pdf_to_images(pdf_path, zoom=zoom)
         questions = []
         answers = []
-        
+
         for page_num, page_img, _ in pages:
             # First extract text using OCR
             page_text = self.ocr.extract_text(page_img)
-            
+
             # Generate questions based on the image
             qa_pairs = self.generator.generate_qa_pairs(
                 page_img=page_img,
                 num_pairs=num_questions_per_page
             )
-            
+
             # Answer each generated question using the OCR text
             for qa in qa_pairs.qa_pairs:
                 # Create a unique ID for the question
                 question_id = f"q_{page_num+1}_{len(questions)+1}"
-                
+
                 # Add the question
                 questions.append(
                     Question(
@@ -98,13 +95,13 @@ class PDFEvaluator:
                         category=qa.assertion
                     )
                 )
-                
+
                 # Get extractive answer from OCR text
                 answer = self.answerer.answer_question(
                     question=qa.question,
                     context=page_text
                 )
-                
+
                 # Add the ground truth answer
                 answers.append(
                     GroundTruthAnswer(
@@ -114,33 +111,33 @@ class PDFEvaluator:
                         source_page=page_num + 1
                     )
                 )
-        
+
         return GroundTruth(
             questions=questions,
             answers=answers
         )
-    
+
     def predict_answers(
         self,
         pdf_path: str,
-        questions: List[Question],
+        questions: list[Question],
         zoom: float = 2.0,
     ) -> Predictions:
         """Predict answers to questions from a PDF document.
-        
+
         Args:
             pdf_path (str): Path to the PDF file
             questions (List[Union[str, Question]]): List of questions or Question objects
             zoom (float, optional): Zoom factor for PDF rendering. Defaults to 2.0.
-            
+
         Returns:
             Predictions: Collection of predicted answers
         """
         # Extract text from PDF
         pages = self.extract_pdf_content(pdf_path, zoom)
-        
+
         predictions = []
-        
+
         # Try to answer each question from each page
         for page in pages:
             for question in questions:
@@ -148,7 +145,7 @@ class PDFEvaluator:
                     question=question.text,
                     context=page.text
                 )
-                
+
                 # Only include answers that were actually found
                 predictions.append(
                     Prediction(
@@ -158,20 +155,20 @@ class PDFEvaluator:
                         source_page=page.page_number
                     )
                 )
-        
+
         return Predictions(predictions=predictions)
-    
+
     def evaluate(
         self,
         ground_truth: GroundTruth,
         predictions: Predictions
     ) -> EvaluationResult:
         """Evaluate predictions against ground truth.
-        
+
         Args:
             ground_truth (GroundTruth): Ground truth answers
             predictions (Predictions): Predicted answers
-            
+
         Returns:
             EvaluationResult: Evaluation results with metrics
         """
@@ -180,36 +177,36 @@ class PDFEvaluator:
         all_bertscore_f1 = []
         matched_answers = 0
         total_questions = len(ground_truth.questions)
-        
+
         for question in ground_truth.questions:
             # Get ground truth answer
             gt_answer = ground_truth.get_answer_for_question(question.id)
-            
+
             # Get prediction for this question
             prediction = predictions.get_prediction_for_question(question.id)
-            
+
             if gt_answer is None or prediction is None:
                 raise ValueError(f"No ground truth or prediction found for question {question.id}")
-        
+
             # Compute metrics
             metrics = []
-            
+
             # Add exact match metric
             exact_match = int(gt_answer.answer.strip().lower() == prediction.answer.strip().lower())
             if exact_match:
                 matched_answers += 1
-                
+
             metrics.append(
                 EvaluationMetric(
                     name="exact_match",
                     value=exact_match
                 )
             )
-            
+
             # Add BERTScore metric
             bertscore = compute_bertscore(gt_answer.answer, prediction.answer)
             all_bertscore_f1.append(bertscore["f1"])
-            
+
             metrics.append(
                 EvaluationMetric(
                     name="bertscore_f1",
@@ -220,7 +217,7 @@ class PDFEvaluator:
                     }
                 )
             )
-            
+
             # Add to question evaluations
             question_evaluations.append(
                 QuestionEvaluation(
@@ -231,7 +228,7 @@ class PDFEvaluator:
                     metrics=metrics
                 )
             )
-        
+
         # Compute overall metrics
         overall_metrics = [
             EvaluationMetric(
@@ -247,7 +244,7 @@ class PDFEvaluator:
                 value=len([p for p in predictions.predictions if p.answer != "⊘"]) / total_questions if total_questions > 0 else 0.0
             )
         ]
-        
+
         return EvaluationResult(
             overall_metrics=overall_metrics,
             question_evaluations=question_evaluations
@@ -259,10 +256,8 @@ class PDFEvaluator:
         num_questions_per_page: int = 3,
         zoom: float = 2.0
     ) -> EvaluationResult:
-        """
-        Establishes a baseline for evaluation by generating ground truth from the given PDF,
-        predicting answers on it, and evaluating them. The ground truth and baseline
-        evaluation result are stored in the evaluator instance.
+        """Establishes a baseline for evaluation by generating ground truth from the given PDF, predicting answers on
+        it, and evaluating them. The ground truth and baseline evaluation result are stored in the evaluator instance.
 
         Args:
             pdf_path (str): Path to the PDF file to use for generating ground truth and baseline.
@@ -299,9 +294,7 @@ class PDFEvaluator:
         pdf_path_to_evaluate: str,
         zoom: float = 2.0
     ) -> EvaluationResult:
-        """
-        Evaluates a given PDF document against the ground truth established during
-        the baseline phase.
+        """Evaluates a given PDF document against the ground truth established during the baseline phase.
 
         Args:
             pdf_path_to_evaluate (str): Path to the PDF file to evaluate.
@@ -309,7 +302,7 @@ class PDFEvaluator:
 
         Returns:
             EvaluationResult: The evaluation result for the given PDF against the baseline GT.
-            
+
         Raises:
             RuntimeError: If a baseline has not been established first.
         """
@@ -318,7 +311,7 @@ class PDFEvaluator:
                 "Baseline ground truth not established or empty. "
                 "Call 'establish_baseline' first with a document that yields questions."
             )
-        
+
         print(f"Evaluating document against baseline: {pdf_path_to_evaluate}")
         # Predict answers for the new PDF using questions from the stored ground truth
         predictions = self.predict_answers(
@@ -329,7 +322,7 @@ class PDFEvaluator:
         evaluation_result = self.evaluate(
             self.ground_truth_for_comparison, predictions
         )
-        
+
         normalized_evaluation_result: dict[str, float] = evaluation_result.normalize_scores(self.baseline_evaluation_result)
         metrics = list(normalized_evaluation_result.keys())
         for metric in metrics:

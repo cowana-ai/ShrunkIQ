@@ -1,5 +1,5 @@
 ocr:
-  model: 
+  model:
     _target_: shrunkiq.ocr.tesseract.TesseractOCR
     lang: "eng"
     config: null

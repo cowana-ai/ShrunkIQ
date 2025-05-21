@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="shrunkiq",
@@ -12,4 +12,4 @@ setup(
     license="MIT",
     python_requires=">=3.9,<3.12",
     packages=find_packages(),
-) 
+)

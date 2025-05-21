@@ -1,4 +1,4 @@
-from shrunkiq.ocr.tesseract import TesseractOCR
 from shrunkiq.ocr.base import BaseOCR
+from shrunkiq.ocr.tesseract import TesseractOCR
 
-__all__ = ['TesseractOCR', 'BaseOCR'] 
+__all__ = ['TesseractOCR', 'BaseOCR']

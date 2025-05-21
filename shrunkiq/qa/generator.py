@@ -1,31 +1,32 @@
-from typing import List, Optional
-from shrunkiq.qa.base import BaseQA
-from PIL import Image
-from shrunkiq.utils import pil_image_to_base64
-from shrunkiq.qa.models import QAPair, QAResponse
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
+from PIL import Image
+
+from shrunkiq.qa.base import BaseQA
+from shrunkiq.qa.models import QAResponse
+from shrunkiq.utils import pil_image_to_base64
+
 
 class QAGenerator(BaseQA):
     """Generate question templates for document comprehension."""
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.output_parser = PydanticOutputParser(pydantic_object=QAResponse)
-    
+
     def generate_qa_pairs(
         self,
         page_img: Image.Image,
         num_pairs: int = 3,
-        context: Optional[str] = None
+        context: str | None = None
     ) -> QAResponse:
         """Generate question-answer templates for document comprehension.
-        
+
         Args:
             page_img (Image.Image): The page image to analyze
             num_pairs (int, optional): Number of QA pairs to generate. Defaults to 3.
             context (Optional[str], optional): Additional context about document type/topic. Defaults to None.
-            
+
         Returns:
             QAResponse: Structured response containing QA pairs
         """
@@ -47,23 +48,23 @@ class QAGenerator(BaseQA):
         }
         response = self.llm.invoke([message])
         return self.output_parser.parse(response.content)
-    
+
     def _build_qa_generation_prompt(
         self,
         num_pairs: int,
-        context: Optional[str]
+        context: str | None
     ) -> str:
         """Build prompt for QA generation.
-        
+
         Args:
             num_pairs (int): Number of QA pairs to generate
             context (Optional[str]): Additional context about document type/topic
-            
+
         Returns:
             str: Generated prompt
         """
         format_instructions = self.output_parser.get_format_instructions()
-        
+
         template = """You're a helpful assistant.
 
 Read the page of the document provided and generate {num_pairs} question-answer pairs that would be used for comprehension verification of the compressed document.
@@ -81,5 +82,5 @@ The questions should cover the important parts of the content and act as asserti
                 "context_str": f"\nContext:\n{context}" if context else ""
             }
         )
-        
-        return prompt.format(num_pairs=num_pairs) 
+
+        return prompt.format(num_pairs=num_pairs)

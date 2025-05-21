@@ -2,8 +2,11 @@
 import argparse
 import os
 import sys
+
 from dotenv import load_dotenv
+
 from shrunkiq.config import cfg
+
 # Add the project root to sys.path to allow importing shrunkiq
 # This is useful for running directly if this script were outside the package,
 # but less critical if it's inside an installed package.
@@ -13,6 +16,7 @@ if _project_root not in sys.path:
 
 try:
     from shrunkiq.qa import PDFEvaluator
+
     # from shrunkiq.config import cfg # If specific config models are needed for PDFEvaluator
 except ImportError as e:
     print(f"Error importing ShrunkIQ modules: {e}")
@@ -58,7 +62,7 @@ def evaluate_pdf_command(args):
     if not evaluator.ground_truth_for_comparison:
         print("Critical error: Ground truth for comparison was not set after baseline. Exiting.")
         sys.exit(1)
-        
+
     print(f"\n--- Evaluating Compressed Document: {args.compressed_pdf} ---")
     try:
         normalized_and_degradation_metrics = evaluator.evaluate_document_against_baseline(
@@ -93,12 +97,12 @@ def main():
         default=None,
         help="Path to .env file for loading environment variables (e.g., API keys). Applies to all commands."
     )
-    
+
     subparsers = parser.add_subparsers(title="Commands", dest="command", required=True)
 
     # Evaluate subcommand parser
     evaluate_parser = subparsers.add_parser(
-        "evaluate", 
+        "evaluate",
         help="Evaluate a compressed/processed PDF against an original.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -151,4 +155,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
+    main()

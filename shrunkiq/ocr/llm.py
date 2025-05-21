@@ -1,21 +1,20 @@
-import pytesseract
-import os
-from typing import Union, Optional
-from PIL import Image
-from shrunkiq.ocr.base import BaseOCR
 from langchain_openai import ChatOpenAI
+from PIL import Image
+
+from shrunkiq.ocr.base import BaseOCR
+
 
 class LLMOCR(BaseOCR):
     """LLM OCR implementation."""
-    
+
     def __init__(
         self,
         model_name: str = "gpt-4o-mini",
         temperature: float = 0.,
-        api_key: Optional[str] = None
+        api_key: str | None = None
     ):
         """Initialize LLMOCR.
-        
+
         Args:
             model_name (str, optional): OpenAI model name. Defaults to "gpt-3.5-turbo".
             temperature (float, optional): Sampling temperature. Defaults to 0.7.
@@ -26,20 +25,20 @@ class LLMOCR(BaseOCR):
             temperature=temperature,
             api_key=api_key
         )
-        self.prompt =  f"""
-        Act as OCR and output what's written in the following image. 
+        self.prompt =  """
+        Act as OCR and output what's written in the following image.
         Output only what's visible and don't use your knowledge to predict what's written.
         - You MUST answer *only* with text verbatim from the passage below.
         - You MUST NOT infer, fill gaps, or use any world knowledge.
         """
-    
-    def extract_text(self, image: Union[Image.Image, str], **kwargs) -> str:
+
+    def extract_text(self, image: Image.Image | str, **kwargs) -> str:
         """Extract text from an image using LLM.
-        
+
         Args:
             image (Union[Image.Image, str]): PIL Image or path to image file
             **kwargs: Additional arguments passed to pytesseract.image_to_string
-            
+
         Returns:
             str: Extracted text from the image
         """
