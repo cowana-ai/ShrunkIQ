@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Union
 from PIL import Image
+from shrunkiq.utils import pil_image_to_base64
 
 class BaseOCR(ABC):
     """Base class for OCR implementations."""
@@ -18,7 +19,7 @@ class BaseOCR(ABC):
         """
         pass
     
-    def _prepare_image(self, image: Union[Image.Image, str]) -> Image.Image:
+    def _prepare_image(self, image: Union[Image.Image, str], base64: bool = False) -> Image.Image:
         """Prepare image for OCR by converting to RGB if needed.
         
         Args:
@@ -32,5 +33,7 @@ class BaseOCR(ABC):
         
         if image.mode != 'RGB':
             image = image.convert('RGB')
-            
+        
+        if base64:
+            return pil_image_to_base64(image)
         return image 
