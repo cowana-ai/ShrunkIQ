@@ -7,12 +7,6 @@ from typing import List, Tuple
 from PIL import Image
 import fitz
 
-def pil_image_to_base64(img: Image.Image, format: str = "PNG") -> str:
-    buffered = io.BytesIO()
-    img.save(buffered, format=format)
-    img_bytes = buffered.getvalue()
-    base64_str = base64.b64encode(img_bytes).decode("utf-8")
-    return base64_str
 
 def pil_image_to_base64(image: Image.Image, format: str = "PNG") -> str:
     """Convert a PIL Image to base64 string.
