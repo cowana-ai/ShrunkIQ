@@ -4,6 +4,23 @@ Smart Readability Evaluation of Compressed Documents using LLMs
 
 ShrunkIQ is a research-driven framework that evaluates how well compressed documents retain their meaning and readability — using powerful language models. It helps you quantify whether compression artifacts (especially in PDF/image-based documents) affect downstream tasks like question answering or semantic understanding.
 
+# 🎯 Hallucination Example
+
+Here's a concrete example of why ShrunkIQ's approach matters:
+
+![Horevard vs Harvard Example](media/horevard.png)
+
+When processing this image:
+
+- **Traditional OCR (Tesseract)** correctly reads: "she graduated from horevard university"
+- **LLM (GPT-4-Vision)** hallucinates: "she graduated from harvard university"
+
+This demonstrates a critical issue:
+
+- The LLM "corrects" the text based on its prior knowledge
+- It assumes "Horevard" must be "Harvard" because that's more likely
+- This "helpful" behavior can be dangerous in real-world applications
+
 # 🚀 Why ShrunkIQ?
 
 - 🗜️ Traditional compression tools reduce file size — but at what cognitive cost?
@@ -28,11 +45,8 @@ ShrunkIQ tackles this challenge by:
 # 📘 Use Cases
 
 - 🧪 Evaluating OCR Pipeline Robustness
-
 - 📉 Benchmarking Compression Algorithms on Real Tasks
-
 - 🎯 Unbiased Evaluation of Semantic Preservation
-
 - 📄 Ensuring Fidelity in Legal, Academic, and Financial Documents
 
 # 🧩 How It Works
@@ -91,9 +105,6 @@ This approach allows for a fair comparison, as it measures the *additional* loss
    uv pip install -e .
    ```
 
-   This will install ShrunkIQ and its dependencies, including the `shrunkiq` command-line tool.
-   If you have an OpenAI API key or other credentials, ensure they are set in your environment or a `.env` file (see CLI Usage).
-
 # 🚀 CLI Usage
 
 Once installed, ShrunkIQ provides a command-line interface for easy evaluation.
@@ -121,12 +132,12 @@ shrunkiq [global_options] evaluate <original_pdf_path> --compressed_pdf <compres
 shrunkiq evaluate ./docs/original_report.pdf \
   --compressed_pdf ./docs/compressed_report_q50.pdf \
   -n 5 \
-  -z 2.
+  -z 2.0
 ```
 
 This command will:
 
-1. Establish a baseline using `original_report.pdf`, generating 5 questions per page with an OCR zoom factor of 2..
+1. Establish a baseline using `original_report.pdf`, generating 5 questions per page with an OCR zoom factor of 2.0.
 2. Evaluate `compressed_report_q50.pdf` against this baseline using the same zoom factor.
 3. Print the baseline metrics, followed by the normalized and relative degradation metrics for the compressed document.
 
