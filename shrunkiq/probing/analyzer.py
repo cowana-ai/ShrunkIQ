@@ -1,5 +1,20 @@
+import ssl
+import string
 from dataclasses import dataclass
 
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+# Download required resources (only once)
+nltk.download('punkt_tab')
+nltk.download('stopwords')
 
 @dataclass
 class HallucinationPoint:
@@ -86,3 +101,38 @@ def analyze_readibility_from_keywords(keywords: list[str], reconstructed_text: s
         A score between 0 and 1 indicating the readability of the text
     """
     return sum(keyword in reconstructed_text for keyword in keywords) / len(keywords) >= threshold
+
+def analyze_sentence_similarity_filtered(
+    source_sentence: str,
+    hallucination_sentence: str,
+    language: str = "english"
+) -> bool:
+    """Analyze the similarity between two sentences after filtering stopwords and punctuation.
+
+    Args:
+        source_sentence: Original sentence to compare
+        hallucination_sentence: Potentially hallucinated sentence
+        language: Language for stopwords (default: "english")
+
+    Returns:
+        bool: True if filtered sentences match exactly, False otherwise
+    """
+    # Get stopwords for the specified language
+    stop_words = set(stopwords.words(language))
+
+    def clean_and_filter(text: str) -> list[str]:
+        """Clean text and filter out stopwords and punctuation."""
+        # Remove punctuation and convert to lowercase
+        text = text.translate(str.maketrans("", "", string.punctuation)).lower()
+
+        # Tokenize and filter stopwords
+        tokens = word_tokenize(text)
+        return [
+            word for word in tokens
+            if word not in stop_words and not word.isnumeric()
+        ]
+
+    # Clean and filter both sentences
+    source_filtered = clean_and_filter(source_sentence)
+    hallucination_filtered = clean_and_filter(hallucination_sentence)
+    return " ".join(source_filtered) == " ".join(hallucination_filtered)

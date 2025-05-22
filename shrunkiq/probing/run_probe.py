@@ -4,7 +4,8 @@ from tqdm import tqdm
 
 from shrunkiq.ocr import BaseOCR, TesseractOCR
 from shrunkiq.probing.analyzer import (HallucinationPoint, ProbeMetrics,
-                                       analyze_readibility_from_keywords)
+                                       analyze_readibility_from_keywords,
+                                       analyze_sentence_similarity_filtered)
 from shrunkiq.probing.logger_config import probe_logger
 from shrunkiq.utils import compress_pil
 
@@ -99,7 +100,7 @@ def probe_llm_tipping_point(
             logger.trace(f"Font {font_size}: LLM='{prediction_llm[:30]}...', "
                         f"Tesseract='{prediction_tesseract[:30]}...', Readable={visible_to_human}")
 
-            if prediction_llm == source.lower() and visible_to_human:
+            if analyze_sentence_similarity_filtered(source.lower(), prediction_llm) and visible_to_human:
                 logger.debug(f"Found normal image at font_size={font_size}")
                 return image, prediction_llm, font_size
 
@@ -126,8 +127,11 @@ def probe_llm_tipping_point(
         is_hallucination = False
         image = None
         hallucination_point = None
+        visible_to_human = True
 
-        while font_size >= min_font_size and compress_quality >= 1:
+        while (font_size >= min_font_size or visible_to_human) and compress_quality >= 1:
+            if tolerance < 0:
+                return False, None, hallucination_point
             image = generate_text_image(source, font_size=font_size)
 
             if use_compression:
@@ -137,12 +141,12 @@ def probe_llm_tipping_point(
             prediction_llm = llm_ocr_output.text.lower().strip().rstrip(".,:;!?")
             prediction_tesseract = tesseract_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
             visible_to_human = analyze_readibility_from_keywords(keywords, prediction_tesseract)
-
+            print(prediction_llm, prediction_tesseract, visible_to_human)
             logger.trace(f"Testing font={font_size}, compression={compress_quality}: "
                         f"LLM='{prediction_llm[:30]}...', "
                         f"Tesseract='{prediction_tesseract[:30]}...', "
                         f"Readable={visible_to_human}")
-            if prediction_llm == target.lower():
+            if analyze_sentence_similarity_filtered(target.lower(), prediction_llm):
                 is_hallucination = True
                 hallucination_point = HallucinationPoint(
                     font_size=font_size,
@@ -156,7 +160,7 @@ def probe_llm_tipping_point(
                 logger.info(f"Found hallucination point: {hallucination_point}")
                 break
 
-            elif prediction_llm == source.lower():
+            elif analyze_sentence_similarity_filtered(source.lower(), prediction_llm):
                 if visible_to_human:
                     logger.debug("LLM sees source (readable): reducing visibility")
                     compress_quality -= degradation_step_size
@@ -164,18 +168,19 @@ def probe_llm_tipping_point(
                 else:
                     logger.debug("LLM sees source (unreadable): increasing visibility")
                     compress_quality += degradation_step_size
-                    font_size += degradation_step_size
+                    #font_size += degradation_step_size
 
             elif not llm_ocr_output.is_clear:
                 if not visible_to_human:
                     logger.debug("Both LLM and OCR cannot read: expected failure")
-                    return is_hallucination, None, hallucination_point
+                    return False, None, hallucination_point
                 else:
                     logger.debug("LLM unclear but image readable: increasing sharpness")
                     font_size += degradation_step_size
                     tolerance -= 1
-                    if tolerance < 0:
-                        return is_hallucination, None, hallucination_point
+            else:
+                tolerance -= 1
+                logger.warning(f"Unknown case: {llm_ocr_output.text}, {llm_ocr_output.is_clear}, {prediction_tesseract}, {visible_to_human}, {font_size}, {compress_quality}")
 
         if not is_hallucination:
             logger.warning(f"No hallucination found for '{source[:30]}...' → '{target[:30]}...'")
