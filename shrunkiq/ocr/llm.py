@@ -1,8 +1,8 @@
+from langchain.chat_models import init_chat_model
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import (ChatPromptTemplate,
                                     HumanMessagePromptTemplate,
                                     SystemMessagePromptTemplate)
-from langchain_openai import ChatOpenAI
 from PIL import Image
 from pydantic import BaseModel, Field
 
@@ -85,6 +85,7 @@ class LLMOCR(BaseOCR):
     def __init__(
         self,
         model_name: str = "gpt-4o-mini",
+        model_provider: str = "openai",
         temperature: float = 0.,
         api_key: str | None = None
     ):
@@ -95,12 +96,9 @@ class LLMOCR(BaseOCR):
             temperature: Sampling temperature. Defaults to 0.
             api_key: OpenAI API key. Defaults to None.
         """
-        self.llm = ChatOpenAI(
-            model_name=model_name,
-            temperature=temperature,
-            api_key=api_key
-        )
 
+        self.llm = init_chat_model(model_name, model_provider=model_provider, temperature=temperature)
+        self.model_provider = model_provider
         # Set up output parsing and prompt template
         self.output_parser = PydanticOutputParser(pydantic_object=OCROutput)
         self.prompt_template = OCRPromptTemplate.create(self.output_parser)
@@ -116,7 +114,18 @@ class LLMOCR(BaseOCR):
             OCROutput: Structured output containing extracted text and clarity status
         """
         image_data = self._prepare_image(image, base64=True)
-
+        if self.model_provider == "openai":
+            image_content = {
+                    "type": "image",
+                    "source_type": "base64",
+                    "data": image_data,
+                    "mime_type": "image/jpeg",
+                }
+        else:
+            image_content = {
+                "type": "image_url",
+                "image_url": f"data:image/jpeg;base64,{image_data}"
+            }
         # Create message with image
         message = {
             "role": "user",
@@ -125,12 +134,7 @@ class LLMOCR(BaseOCR):
                     "type": "text",
                     "text": self.prompt_template.format(),
                 },
-                {
-                    "type": "image",
-                    "source_type": "base64",
-                    "data": image_data,
-                    "mime_type": "image/jpeg",
-                },
+                image_content
             ],
         }
 
