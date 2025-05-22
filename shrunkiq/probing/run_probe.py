@@ -91,7 +91,7 @@ def probe_llm_tipping_point(
 
         while font_size <= max_font_size:
             image = generate_text_image(source, font_size=font_size)
-            prediction_llm = llm_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
+            prediction_llm = llm_ocr.extract_text(image).text.lower().strip().rstrip(".,:;!?")
             prediction_tesseract = tesseract_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
 
             visible_to_human = analyze_readibility_from_keywords(keywords, prediction_tesseract)
@@ -133,7 +133,8 @@ def probe_llm_tipping_point(
             if use_compression:
                 image = compress_pil(image, compress_quality)
 
-            prediction_llm = llm_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
+            llm_ocr_output = llm_ocr.extract_text(image)
+            prediction_llm = llm_ocr_output.text.lower().strip().rstrip(".,:;!?")
             prediction_tesseract = tesseract_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
             visible_to_human = analyze_readibility_from_keywords(keywords, prediction_tesseract)
 
@@ -166,7 +167,7 @@ def probe_llm_tipping_point(
                     compress_quality += degradation_step_size
                     font_size += degradation_step_size
 
-            elif prediction_llm == 'image is not clear':
+            elif not llm_ocr_output.is_clear:
                 if not visible_to_human:
                     logger.debug("Both LLM and OCR cannot read: expected failure")
                     return is_hallucination, None, hallucination_point
@@ -262,7 +263,7 @@ def probe_llm_tipping_point(
 
     logger.info("Probing completed")
     logger.info(f"Success rate: {metrics.hallucination_rate:.2%}")
-    logger.info(f"Human readable rate: {metrics.human_readable_rate:.2%}")
+    logger.info(f"Human readable hallucination rate: {metrics.human_readable_hallucination_rate:.2%}")
     logger.info(f"Average font size: {metrics.avg_hallucination_font_size:.1f}")
     logger.info(f"Average compression: {metrics.avg_hallucination_compression:.1f}")
 

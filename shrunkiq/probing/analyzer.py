@@ -52,7 +52,7 @@ class ProbeMetrics:
         return self.successful_hallucinations / self.total_samples if self.total_samples > 0 else 0
 
     @property
-    def human_readable_rate(self) -> float:
+    def human_readable_hallucination_rate(self) -> float:
         """Rate of hallucinations that were human-readable."""
         return (self.human_readable_hallucinations / self.successful_hallucinations
                 if self.successful_hallucinations > 0 else 0)
