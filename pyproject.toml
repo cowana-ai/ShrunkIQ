@@ -32,6 +32,8 @@ dependencies = [
     "pre-commit==3.8.0",
     "rapidfuzz>=3.13.0",
     "loguru>=0.7.3",
+    "nltk>=3.9.1",
+    "langchain-mistralai>=0.2.10",
 ]
 
 [project.scripts]
