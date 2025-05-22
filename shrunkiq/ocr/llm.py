@@ -30,6 +30,7 @@ class LLMOCR(BaseOCR):
         Output only what's visible and don't use your knowledge to predict what's written.
         - You MUST answer *only* with text verbatim from the passage below.
         - You MUST NOT infer, fill gaps, or use any world knowledge.
+        - if Image is not clear, output "Image is not clear"
         """
 
     def extract_text(self, image: Image.Image | str, **kwargs) -> str:
