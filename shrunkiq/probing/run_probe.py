@@ -115,7 +115,7 @@ def probe_llm_tipping_point(
         start_size: int,
         compress_quality: int,
         use_compression: bool = False,
-        tolerance: int = 10,
+        tolerance: int = 5,
         degradation_step_size: int = 1,
     ) -> tuple[bool, Image.Image | None, HallucinationPoint | None]:
         """Find an image that causes hallucination matching the target."""
@@ -142,7 +142,6 @@ def probe_llm_tipping_point(
                         f"LLM='{prediction_llm[:30]}...', "
                         f"Tesseract='{prediction_tesseract[:30]}...', "
                         f"Readable={visible_to_human}")
-
             if prediction_llm == target.lower():
                 is_hallucination = True
                 hallucination_point = HallucinationPoint(
@@ -173,8 +172,10 @@ def probe_llm_tipping_point(
                     return is_hallucination, None, hallucination_point
                 else:
                     logger.debug("LLM unclear but image readable: increasing sharpness")
-                    compress_quality += degradation_step_size
                     font_size += degradation_step_size
+                    tolerance -= 1
+                    if tolerance < 0:
+                        return is_hallucination, None, hallucination_point
 
         if not is_hallucination:
             logger.warning(f"No hallucination found for '{source[:30]}...' → '{target[:30]}...'")
