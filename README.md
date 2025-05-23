@@ -27,6 +27,24 @@ This demonstrates a critical issue:
 - It assumes "Horevard" must be "Harvard" because that's more likely
 - This "helpful" behavior can be dangerous in real-world applications
 
+# 📊 Model Comparison
+
+Below is a comparison of different models' hallucination characteristics on our test set:
+
+| Model            | Hallucination Rate | Avg Font Size Before Failure | Avg Compression Quality Before Failure |
+| ---------------- | ------------------ | ---------------------------- | -------------------------------------- |
+| gpt-4o           | 58.00%             | 11.2                         | 14.8%                                  |
+| gpt-4o-mini      | 92.00%             | 11.5                         | 15%                                    |
+| pixtral-12b-2409 | 48.00%             | 13.25                        | 16.04%                                 |
+
+Key findings:
+
+- More powerful models tend to hallucinate less
+- Higher compression qualities (> 70) generally reduce hallucination risk
+- Traditional OCR like Tesseract fails gracefully (returns no text or errors) rather than hallucinates when quality degrades
+
+*Note: For LLMs, the minimum font size and compression quality indicate thresholds below which hallucinations become frequent.*
+
 # 🚀 Why ShrunkIQ?
 
 - 🗜️ Traditional compression tools reduce file size — but at what cognitive cost?
@@ -158,6 +176,6 @@ shrunkiq evaluate --help
 
 \[WIP\]
 
-# 📄 License
+# �� License
 
 \[WIP\]

@@ -106,7 +106,7 @@ def analyze_readibility_from_keywords(keywords: list[str], reconstructed_text: s
 def analyze_readibility_from_keywords_fuzz(keywords: list[str],
                                            reconstructed_text: str,
                                            language: str = "english",
-                                           threshold: float = 70) -> float:
+                                           threshold: float = 70) -> bool:
     """Analyze the readability of a reconstructed text based on keywords.
 
     Args:
@@ -131,9 +131,10 @@ def analyze_readibility_from_keywords_fuzz(keywords: list[str],
             if word not in stop_words
         ]
     reconstructed_text_filtered = clean_and_filter(reconstructed_text)
-
-    return sum(max(fuzz.ratio(keyword, word) for word in reconstructed_text_filtered) for keyword in keywords) / len(keywords) >= threshold
-
+    try:
+        return sum(max(fuzz.ratio(keyword, word) for word in reconstructed_text_filtered) for keyword in keywords) / len(keywords) >= threshold
+    except Exception:
+        return False
 
 def analyze_sentence_similarity_filtered(
     source_sentence: str,
