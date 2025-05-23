@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from thefuzz import fuzz
 
 try:
     _create_unverified_https_context = ssl._create_unverified_context
@@ -101,6 +102,38 @@ def analyze_readibility_from_keywords(keywords: list[str], reconstructed_text: s
         A score between 0 and 1 indicating the readability of the text
     """
     return sum(keyword in reconstructed_text for keyword in keywords) / len(keywords) >= threshold
+
+def analyze_readibility_from_keywords_fuzz(keywords: list[str],
+                                           reconstructed_text: str,
+                                           language: str = "english",
+                                           threshold: float = 70) -> float:
+    """Analyze the readability of a reconstructed text based on keywords.
+
+    Args:
+        keywords: List of keywords to check for in the reconstructed text
+        reconstructed_text: The reconstructed text to analyze
+
+    Returns:
+        A score between 0 and 1 indicating the readability of the text
+    """
+        # Get stopwords for the specified language
+    stop_words = set(stopwords.words(language))
+
+    def clean_and_filter(text: str) -> list[str]:
+        """Clean text and filter out stopwords and punctuation."""
+        # Remove punctuation and convert to lowercase
+        text = text.translate(str.maketrans("", "", string.punctuation)).lower()
+
+        # Tokenize and filter stopwords
+        tokens = word_tokenize(text)
+        return [
+            word for word in tokens
+            if word not in stop_words and not word.isnumeric()
+        ]
+    reconstructed_text_filtered = clean_and_filter(reconstructed_text)
+
+    return sum(max(fuzz.ratio(keyword, word) for word in reconstructed_text_filtered) for keyword in keywords) / len(keywords) >= threshold
+
 
 def analyze_sentence_similarity_filtered(
     source_sentence: str,
