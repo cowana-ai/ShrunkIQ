@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from shrunkiq.ocr import BaseOCR, TesseractOCR
 from shrunkiq.probing.analyzer import (HallucinationPoint, ProbeMetrics,
-                                       analyze_readibility_from_keywords,
+                                       analyze_readibility_from_keywords_fuzz,
                                        analyze_sentence_similarity_filtered)
 from shrunkiq.probing.logger_config import probe_logger
 from shrunkiq.utils import compress_pil
@@ -95,7 +95,7 @@ def probe_llm_tipping_point(
             prediction_llm = llm_ocr.extract_text(image).text.lower().strip().rstrip(".,:;!?")
             prediction_tesseract = tesseract_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
 
-            visible_to_human = analyze_readibility_from_keywords(keywords, prediction_tesseract)
+            visible_to_human = analyze_readibility_from_keywords_fuzz(keywords, prediction_tesseract)
 
             logger.trace(f"Font {font_size}: LLM='{prediction_llm[:30]}...', "
                         f"Tesseract='{prediction_tesseract[:30]}...', Readable={visible_to_human}")
@@ -140,8 +140,8 @@ def probe_llm_tipping_point(
             llm_ocr_output = llm_ocr.extract_text(image)
             prediction_llm = llm_ocr_output.text.lower().strip().rstrip(".,:;!?")
             prediction_tesseract = tesseract_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
-            visible_to_human = analyze_readibility_from_keywords(keywords, prediction_tesseract)
-            print(prediction_llm, prediction_tesseract, visible_to_human)
+            visible_to_human = analyze_readibility_from_keywords_fuzz(keywords, prediction_tesseract)
+
             logger.trace(f"Testing font={font_size}, compression={compress_quality}: "
                         f"LLM='{prediction_llm[:30]}...', "
                         f"Tesseract='{prediction_tesseract[:30]}...', "
