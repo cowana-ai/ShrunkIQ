@@ -34,6 +34,7 @@ dependencies = [
     "loguru>=0.7.3",
     "nltk>=3.9.1",
     "langchain-mistralai>=0.2.10",
+    "thefuzz>=0.22.1",
 ]
 
 [project.scripts]
