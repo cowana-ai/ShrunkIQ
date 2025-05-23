@@ -128,7 +128,7 @@ def analyze_readibility_from_keywords_fuzz(keywords: list[str],
         tokens = word_tokenize(text)
         return [
             word for word in tokens
-            if word not in stop_words and not word.isnumeric()
+            if word not in stop_words
         ]
     reconstructed_text_filtered = clean_and_filter(reconstructed_text)
 
@@ -162,10 +162,11 @@ def analyze_sentence_similarity_filtered(
         tokens = word_tokenize(text)
         return [
             word for word in tokens
-            if word not in stop_words and not word.isnumeric()
+            if word not in stop_words
         ]
 
     # Clean and filter both sentences
     source_filtered = clean_and_filter(source_sentence)
     hallucination_filtered = clean_and_filter(hallucination_sentence)
+
     return " ".join(source_filtered) == " ".join(hallucination_filtered)
