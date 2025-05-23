@@ -14,6 +14,12 @@ When processing this image:
 
 - **Traditional OCR (Tesseract)** correctly reads: "she graduated from horevard university"
 - **LLM (GPT-4-Vision)** hallucinates: "she graduated from harvard university"
+  ![Horevard vs Harvard Example](media/rana.png)
+
+When processing this image:
+
+- **Traditional OCR (Tesseract)** correctly reads: "He grew up in Rana before moving to Europe"
+- **LLM (GPT-4-Vision)** hallucinates: "He grew up in Ghana before moving to Europe"
 
 This demonstrates a critical issue:
 
