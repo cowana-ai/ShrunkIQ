@@ -35,6 +35,8 @@ dependencies = [
     "nltk>=3.9.1",
     "langchain-mistralai>=0.2.10",
     "thefuzz>=0.22.1",
+    "scikit-image>=0.24.0",
+    "scikit-learn>=1.6.1",
 ]
 
 [project.scripts]
