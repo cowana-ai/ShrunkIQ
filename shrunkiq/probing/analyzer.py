@@ -7,6 +7,9 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from thefuzz import fuzz
 
+from shrunkiq.metrics.chamfer import compute_image_chamfer_distance
+from shrunkiq.utils import generate_text_image
+
 try:
     _create_unverified_https_context = ssl._create_unverified_context
 except AttributeError:
@@ -16,6 +19,25 @@ else:
 # Download required resources (only once)
 nltk.download('punkt_tab')
 nltk.download('stopwords')
+
+@dataclass
+class VisualSimilarityTracker:
+    """Tracks visual similarity metrics during probing."""
+    total_similarity: float = 0.0
+    steps: int = 0
+
+    def add_sample(self, similarity_score: float) -> None:
+        """Add a new similarity sample."""
+        self.total_similarity += similarity_score
+        self.steps += 1
+
+    @property
+    def average_similarity(self) -> float:
+        """Get the average similarity score."""
+        return self.total_similarity / self.steps if self.steps > 0 else 0.0
+
+    def __str__(self) -> str:
+        return f"VisualSimilarity(avg={self.average_similarity:.4f}, samples={self.steps})"
 
 @dataclass
 class HallucinationPoint:
@@ -56,6 +78,10 @@ class ProbeMetrics:
     human_readable_hallucinations: int
     human_unreadable_hallucinations: int
 
+    # Consistency metrics
+    avg_visual_similarity_llm: float
+    avg_visual_similarity_ocr: float
+
     # Detailed hallucination points
     hallucination_points: list[HallucinationPoint]
 
@@ -88,7 +114,9 @@ class ProbeMetrics:
             "min_hallucination_compression": self.min_hallucination_compression,
             "max_hallucination_compression": self.max_hallucination_compression,
             "human_readable_hallucinations": self.human_readable_hallucinations,
-            "human_unreadable_hallucinations": self.human_unreadable_hallucinations
+            "human_unreadable_hallucinations": self.human_unreadable_hallucinations,
+            "avg_visual_similarity_llm": self.avg_visual_similarity_llm,
+            "avg_visual_similarity_ocr": self.avg_visual_similarity_ocr
         }
 
 def analyze_readibility_from_keywords(keywords: list[str], reconstructed_text: str, threshold: float = 0.5) -> float:
@@ -106,7 +134,8 @@ def analyze_readibility_from_keywords(keywords: list[str], reconstructed_text: s
 def analyze_readibility_from_keywords_fuzz(keywords: list[str],
                                            reconstructed_text: str,
                                            language: str = "english",
-                                           threshold: float = 70) -> bool:
+                                           threshold: float = 70,
+                                           return_fuzzy_similarity: bool = False) -> bool | tuple[bool, float]:
     """Analyze the readability of a reconstructed text based on keywords.
 
     Args:
@@ -131,10 +160,13 @@ def analyze_readibility_from_keywords_fuzz(keywords: list[str],
             if word not in stop_words
         ]
     reconstructed_text_filtered = clean_and_filter(reconstructed_text)
+    fuzzy_similarity = sum(max(fuzz.ratio(keyword, word) for word in reconstructed_text_filtered) for keyword in keywords) / len(keywords)
     try:
-        return sum(max(fuzz.ratio(keyword, word) for word in reconstructed_text_filtered) for keyword in keywords) / len(keywords) >= threshold
+        if return_fuzzy_similarity:
+            return fuzzy_similarity >= threshold, fuzzy_similarity
+        return fuzzy_similarity >= threshold
     except Exception:
-        return False
+        return False, 0
 
 def analyze_sentence_similarity_filtered(
     source_sentence: str,
@@ -171,3 +203,51 @@ def analyze_sentence_similarity_filtered(
     hallucination_filtered = clean_and_filter(hallucination_sentence)
 
     return " ".join(source_filtered) == " ".join(hallucination_filtered)
+
+
+def visual_similarity(text1: str, text2: str, font_size: int = 18, ignore_common_words: bool = True, language: str = "english") -> float:
+    """Compute visual similarity between two text strings.
+
+    Args:
+        text1: First text string
+        text2: Second text string
+        font_size: Font size for text rendering
+        ignore_common_words: Whether to ignore common words
+    """
+    if text1 == text2:
+        return 0.
+    # Get stopwords for the specified language
+    stop_words = set(stopwords.words(language))
+
+    def clean_and_filter(text: str) -> list[str]:
+        """Clean text and filter out stopwords and punctuation."""
+        # Remove punctuation and convert to lowercase
+        text = text.translate(str.maketrans("", "", string.punctuation)).lower()
+
+        # Tokenize and filter stopwords
+        tokens = word_tokenize(text)
+        return [
+            word for word in tokens
+            if word not in stop_words
+        ]
+
+    # Clean and filter both sentences
+    text1_filtered = clean_and_filter(text1)
+    text2_filtered = clean_and_filter(text2)
+    if ignore_common_words:
+        # remove common words from both sentences
+        text1_filtered_uique = [word for word in text1_filtered if word not in text2_filtered]
+        text2_filtered_unique = [word for word in text2_filtered if word not in text1_filtered]
+        text1 = " ".join(text1_filtered_uique)
+        text2 = " ".join(text2_filtered_unique)
+    else:
+        text1 = " ".join(text1_filtered)
+        text2 = " ".join(text2_filtered)
+    if len(text1) == 0 or len(text2) == 0:
+        return 10.
+    img1 = generate_text_image(text1, font_size=font_size)
+    img2 = generate_text_image(text2, font_size=font_size)
+    print(text1, text2)
+    chamfer_distance = compute_image_chamfer_distance(img1, img2)
+    print(chamfer_distance)
+    return chamfer_distance

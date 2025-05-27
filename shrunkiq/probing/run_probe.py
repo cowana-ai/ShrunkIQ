@@ -1,53 +1,18 @@
-import matplotlib.font_manager as fm
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 from tqdm import tqdm
 
+from shrunkiq.metrics.meter import AverageMeter
 from shrunkiq.ocr import BaseOCR, TesseractOCR
 from shrunkiq.probing.analyzer import (HallucinationPoint, ProbeMetrics,
                                        analyze_readibility_from_keywords_fuzz,
-                                       analyze_sentence_similarity_filtered)
+                                       analyze_sentence_similarity_filtered,
+                                       visual_similarity)
 from shrunkiq.probing.logger_config import probe_logger
-from shrunkiq.utils import compress_pil
+from shrunkiq.utils import compress_pil, generate_text_image
 
 # Initialize logger
 probe_logger.setup()
 logger = probe_logger.get_logger()
-
-def generate_text_image(text, width=800, font_size=24):
-    # Get a font path from matplotlib's font manager (usually DejaVu Sans)
-    font_path = fm.findfont(fm.FontProperties(family='DejaVu Sans'))
-    font = ImageFont.truetype(font_path, font_size)
-
-    # Estimate wrapped lines
-    image_dummy = Image.new("RGB", (width, 1))
-    draw_dummy = ImageDraw.Draw(image_dummy)
-    lines = []
-    for line in text.split("\n"):
-        words = line.split()
-        current_line = ""
-        for word in words:
-            test_line = f"{current_line} {word}".strip()
-            if draw_dummy.textlength(test_line, font=font) <= width - 40:
-                current_line = test_line
-            else:
-                lines.append(current_line)
-                current_line = word
-        if current_line:
-            lines.append(current_line)
-
-    # Estimate height
-    line_height = font.getbbox("A")[3] + 10
-    height = line_height * len(lines) + 40
-
-    # Draw image
-    image = Image.new("RGB", (width, height), color="white")
-    draw = ImageDraw.Draw(image)
-    y = 20
-    for line in lines:
-        draw.text((20, y), line, font=font, fill="black")
-        y += line_height
-
-    return image
 
 
 def probe_llm_tipping_point(
@@ -118,20 +83,24 @@ def probe_llm_tipping_point(
         use_compression: bool = False,
         tolerance: int = 5,
         degradation_step_size: int = 1,
-    ) -> tuple[bool, Image.Image | None, HallucinationPoint | None]:
+    ) -> tuple[tuple[float, float], Image.Image | None, HallucinationPoint | None]:
         """Find an image that causes hallucination matching the target."""
         logger.debug(f"Searching for hallucination: '{source[:30]}...' → '{target[:30]}...'")
         logger.debug(f"Starting at font={start_size}, compression={compress_quality}")
 
         font_size = start_size
-        is_hallucination = False
         image = None
         hallucination_point = None
         visible_to_human = True
 
+        # Initialize similarity meters
+        llm_similarity = AverageMeter('LLM Similarity', ':.4f')
+        ocr_similarity = AverageMeter('OCR Similarity', ':.4f')
+
         while (font_size >= min_font_size or visible_to_human) and compress_quality >= 1:
             if tolerance < 0:
-                return False, None, hallucination_point
+                image = None
+                break
             image = generate_text_image(source, font_size=font_size)
 
             if use_compression:
@@ -142,12 +111,21 @@ def probe_llm_tipping_point(
             prediction_tesseract = tesseract_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
             visible_to_human = analyze_readibility_from_keywords_fuzz(keywords, prediction_tesseract)
 
+            if llm_ocr_output.is_clear:
+                similarity_score = visual_similarity(source.lower(), prediction_llm)
+                llm_similarity.update(similarity_score)
+
+            if visible_to_human:
+                similarity_score = visual_similarity(source.lower(), prediction_tesseract)
+                ocr_similarity.update(similarity_score)
+
             logger.trace(f"Testing font={font_size}, compression={compress_quality}: "
                         f"LLM='{prediction_llm[:30]}...', "
                         f"Tesseract='{prediction_tesseract[:30]}...', "
-                        f"Readable={visible_to_human}")
+                        f"Readable={visible_to_human}, "
+                        f"{llm_similarity}, {ocr_similarity}")
+
             if analyze_sentence_similarity_filtered(target.lower(), prediction_llm):
-                is_hallucination = True
                 hallucination_point = HallucinationPoint(
                     font_size=font_size,
                     compression_quality=compress_quality,
@@ -173,7 +151,8 @@ def probe_llm_tipping_point(
             elif not llm_ocr_output.is_clear:
                 if not visible_to_human:
                     logger.debug("Both LLM and OCR cannot read: expected failure")
-                    return False, None, hallucination_point
+                    image = None
+                    break
                 else:
                     logger.debug("LLM unclear but image readable: increasing sharpness")
                     font_size += degradation_step_size
@@ -182,10 +161,10 @@ def probe_llm_tipping_point(
                 tolerance -= 1
                 logger.warning(f"Unknown case: {llm_ocr_output.text}, {llm_ocr_output.is_clear}, {prediction_tesseract}, {visible_to_human}, {font_size}, {compress_quality}")
 
-        if not is_hallucination:
+        if hallucination_point is None:
             logger.warning(f"No hallucination found for '{source[:30]}...' → '{target[:30]}...'")
 
-        return is_hallucination, image, hallucination_point
+        return (llm_similarity.avg, ocr_similarity.avg), image, hallucination_point
 
     # Initialize metrics collection
     hallucination_points: list[HallucinationPoint] = []
@@ -194,6 +173,10 @@ def probe_llm_tipping_point(
     compression_qualities: list[int] = []
     human_readable_count = 0
     successful_hallucinations = 0
+
+    # Initialize overall similarity meters
+    overall_llm_similarity = AverageMeter('Overall LLM Similarity', ':.4f')
+    overall_ocr_similarity = AverageMeter('Overall OCR Similarity', ':.4f')
 
     images = []
     for idx, (source, target, keywords) in enumerate(tqdm(sentences)):
@@ -216,7 +199,7 @@ def probe_llm_tipping_point(
             continue
 
         # Try to find hallucination with compression
-        is_hallucination, hallucination_image, hallucination_point = find_hallucination(
+        (llm_similarity, ocr_similarity), hallucination_image, hallucination_point = find_hallucination(
             source,
             target,
             keywords,
@@ -225,7 +208,11 @@ def probe_llm_tipping_point(
             use_compression=True
         )
 
-        if is_hallucination and isinstance(hallucination_point, HallucinationPoint):
+        # Update overall similarity meters
+        overall_llm_similarity.update(llm_similarity)
+        overall_ocr_similarity.update(ocr_similarity)
+
+        if hallucination_point is not None and isinstance(hallucination_point, HallucinationPoint):
             successful_hallucinations += 1
             font_sizes.append(hallucination_point.font_size)
             compression_qualities.append(hallucination_point.compression_quality)
@@ -264,7 +251,9 @@ def probe_llm_tipping_point(
         human_readable_hallucinations=human_readable_count,
         human_unreadable_hallucinations=successful_hallucinations - human_readable_count,
         hallucination_points=hallucination_points,
-        error_cases=error_cases
+        error_cases=error_cases,
+        avg_visual_similarity_llm=overall_llm_similarity.avg,
+        avg_visual_similarity_ocr=overall_ocr_similarity.avg
     )
 
     logger.info("Probing completed")
@@ -272,5 +261,7 @@ def probe_llm_tipping_point(
     logger.info(f"Human readable hallucination rate: {metrics.human_readable_hallucination_rate:.2%}")
     logger.info(f"Average font size: {metrics.avg_hallucination_font_size:.1f}")
     logger.info(f"Average compression: {metrics.avg_hallucination_compression:.1f}")
+    logger.info(str(overall_llm_similarity))
+    logger.info(str(overall_ocr_similarity))
 
     return images, metrics

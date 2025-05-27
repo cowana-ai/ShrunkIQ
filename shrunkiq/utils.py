@@ -3,8 +3,45 @@ import io
 import os
 
 import fitz
-from PIL import Image
+import matplotlib.font_manager as fm
+from PIL import Image, ImageDraw, ImageFont
 
+
+def generate_text_image(text, width=800, font_size=24):
+    # Get a font path from matplotlib's font manager (usually DejaVu Sans)
+    font_path = fm.findfont(fm.FontProperties(family='DejaVu Sans'))
+    font = ImageFont.truetype(font_path, font_size)
+
+    # Estimate wrapped lines
+    image_dummy = Image.new("RGB", (width, 1))
+    draw_dummy = ImageDraw.Draw(image_dummy)
+    lines = []
+    for line in text.split("\n"):
+        words = line.split()
+        current_line = ""
+        for word in words:
+            test_line = f"{current_line} {word}".strip()
+            if draw_dummy.textlength(test_line, font=font) <= width - 40:
+                current_line = test_line
+            else:
+                lines.append(current_line)
+                current_line = word
+        if current_line:
+            lines.append(current_line)
+
+    # Estimate height
+    line_height = font.getbbox("A")[3] + 10
+    height = line_height * len(lines) + 40
+
+    # Draw image
+    image = Image.new("RGB", (width, height), color="white")
+    draw = ImageDraw.Draw(image)
+    y = 20
+    for line in lines:
+        draw.text((20, y), line, font=font, fill="black")
+        y += line_height
+
+    return image
 
 def pil_image_to_base64(image: Image.Image, format: str = "PNG") -> str:
     """Convert a PIL Image to base64 string.
