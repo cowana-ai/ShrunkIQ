@@ -2,7 +2,7 @@ import numpy as np
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 
-from shrunkiq.metrics import compute_bertscore
+from shrunkiq.metrics.bertscore import compute_bertscore
 from shrunkiq.qa.models import (EvaluationMetric, EvaluationResult,
                                 GroundTruth, GroundTruthAnswer, PageContent,
                                 Prediction, Predictions, Question,
