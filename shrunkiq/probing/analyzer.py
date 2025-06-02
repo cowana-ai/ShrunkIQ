@@ -8,6 +8,7 @@ from nltk.tokenize import word_tokenize
 from thefuzz import fuzz
 
 from shrunkiq.metrics.chamfer import compute_image_chamfer_distance
+from shrunkiq.metrics.lpips import compute_image_lpips
 from shrunkiq.utils import generate_text_image
 
 try:
@@ -19,25 +20,6 @@ else:
 # Download required resources (only once)
 nltk.download('punkt_tab')
 nltk.download('stopwords')
-
-@dataclass
-class VisualSimilarityTracker:
-    """Tracks visual similarity metrics during probing."""
-    total_similarity: float = 0.0
-    steps: int = 0
-
-    def add_sample(self, similarity_score: float) -> None:
-        """Add a new similarity sample."""
-        self.total_similarity += similarity_score
-        self.steps += 1
-
-    @property
-    def average_similarity(self) -> float:
-        """Get the average similarity score."""
-        return self.total_similarity / self.steps if self.steps > 0 else 0.0
-
-    def __str__(self) -> str:
-        return f"VisualSimilarity(avg={self.average_similarity:.4f}, samples={self.steps})"
 
 @dataclass
 class HallucinationPoint:
@@ -79,8 +61,7 @@ class ProbeMetrics:
     human_unreadable_hallucinations: int
 
     # Consistency metrics
-    avg_visual_similarity_llm: float
-    avg_visual_similarity_ocr: float
+    faithfulness_metrics: dict[str, float]
 
     # Detailed hallucination points
     hallucination_points: list[HallucinationPoint]
@@ -115,8 +96,6 @@ class ProbeMetrics:
             "max_hallucination_compression": self.max_hallucination_compression,
             "human_readable_hallucinations": self.human_readable_hallucinations,
             "human_unreadable_hallucinations": self.human_unreadable_hallucinations,
-            "avg_visual_similarity_llm": self.avg_visual_similarity_llm,
-            "avg_visual_similarity_ocr": self.avg_visual_similarity_ocr
         }
 
 def analyze_readibility_from_keywords(keywords: list[str], reconstructed_text: str, threshold: float = 0.5) -> float:
@@ -160,6 +139,8 @@ def analyze_readibility_from_keywords_fuzz(keywords: list[str],
             if word not in stop_words
         ]
     reconstructed_text_filtered = clean_and_filter(reconstructed_text)
+    if len(reconstructed_text_filtered) == 0:
+        return False, 0
     fuzzy_similarity = sum(max(fuzz.ratio(keyword, word) for word in reconstructed_text_filtered) for keyword in keywords) / len(keywords)
     try:
         if return_fuzzy_similarity:
@@ -205,7 +186,12 @@ def analyze_sentence_similarity_filtered(
     return " ".join(source_filtered) == " ".join(hallucination_filtered)
 
 
-def visual_similarity(text1: str, text2: str, font_size: int = 18, ignore_common_words: bool = True, language: str = "english") -> float:
+def visual_similarity(text1: str,
+                      text2: str,
+                      method: str = "chamfer",
+                      font_size: int = 18,
+                      ignore_common_words: bool = False,
+                      language: str = "english") -> float:
     """Compute visual similarity between two text strings.
 
     Args:
@@ -243,11 +229,15 @@ def visual_similarity(text1: str, text2: str, font_size: int = 18, ignore_common
     else:
         text1 = " ".join(text1_filtered)
         text2 = " ".join(text2_filtered)
-    if len(text1) == 0 or len(text2) == 0:
-        return 10.
+
     img1 = generate_text_image(text1, font_size=font_size)
     img2 = generate_text_image(text2, font_size=font_size)
-    print(text1, text2)
-    chamfer_distance = compute_image_chamfer_distance(img1, img2)
-    print(chamfer_distance)
-    return chamfer_distance
+    if method == "chamfer":
+        # https://www.cnblogs.com/ariel-dreamland/p/13225299.html
+        chamfer_distance = compute_image_chamfer_distance(img1, img2)
+        return chamfer_distance
+    elif method == "lpips":
+        lpips_distance = compute_image_lpips(img1, img2)
+        return lpips_distance
+    else:
+        raise ValueError(f"Invalid method: {method}")
