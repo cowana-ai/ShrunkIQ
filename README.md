@@ -31,11 +31,11 @@ This demonstrates a critical issue:
 
 Below is a comparison of different models' hallucination characteristics on our test set:
 
-| Model            | Hallucination Rate | Avg Font Size Before Failure | Avg Compression Quality Before Failure |
-| ---------------- | ------------------ | ---------------------------- | -------------------------------------- |
-| gpt-4o           | 58.00%             | 11.2                         | 14.8%                                  |
-| gpt-4o-mini      | 92.00%             | 11.5                         | 15%                                    |
-| pixtral-12b-2409 | 48.00%             | 13.25                        | 16.04%                                 |
+| Model            | Hallucination Rate | CER   | LPIPS |
+| ---------------- | ------------------ | ----- | ----- |
+| gpt-4o           | 44.00%             | 0.034 | 0.49  |
+| gpt-4o-mini      | 78.00%             | 0.052 | 0.78  |
+| pixtral-12b-2409 | 50.00%             | 0.074 | 1.00  |
 
 Key findings:
 

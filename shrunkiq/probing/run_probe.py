@@ -97,11 +97,11 @@ def probe_llm_tipping_point(
         visible_to_human = True
 
         # Initialize similarity meters
-        llm_similarity = AverageMeter('LLM Similarity', ':.4f')
-        ocr_similarity = AverageMeter('OCR Similarity', ':.4f')
+        llm_similarity = AverageMeter('LLM Visual Similarity (LPIPS)', ':.4f')
+        ocr_similarity = AverageMeter('OCR Visual Similarity (LPIPS)', ':.4f')
 
-        llm_cer = AverageMeter('CER LLM', ':.4f')
-        ocr_cer = AverageMeter('CER OCR', ':.4f')
+        llm_cer = AverageMeter('CER LLM (Character Error Rate)', ':.4f')
+        ocr_cer = AverageMeter('CER OCR (Character Error Rate)', ':.4f')
 
         while (font_size >= min_font_size or visible_to_human) and compress_quality >= 1:
             if tolerance <= 0:
