@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -12,6 +13,7 @@ class AverageMeter:
     """
     name: str
     fmt: str = ':f'
+    ignore_nan: bool = True
 
     def __post_init__(self):
         self.reset()
@@ -30,6 +32,8 @@ class AverageMeter:
             val: Value to update with
             n: Number of items this value represents (default: 1)
         """
+        if self.ignore_nan and math.isnan(val):
+            return
         self.val = val
         self.sum += val * n
         self.count += n

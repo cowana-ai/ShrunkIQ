@@ -74,7 +74,7 @@ def compute_image_chamfer_distance(
 
     # Handle empty edge cases
     if len(points1) == 0 or len(points2) == 0:
-        return float('inf'), float('inf'), float('inf')
+        return float('nan')
 
     # Compute Chamfer distance
     chamfer = chamfer_distance(points1, points2)
