@@ -237,6 +237,7 @@ def visual_similarity(text1: str,
         chamfer_distance = compute_image_chamfer_distance(img1, img2)
         return chamfer_distance
     elif method == "lpips":
+        # https://arxiv.org/pdf/1801.03924
         lpips_distance = compute_image_lpips(img1, img2)
         return lpips_distance
     else:
