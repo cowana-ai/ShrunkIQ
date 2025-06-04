@@ -31,11 +31,11 @@ This demonstrates a critical issue:
 
 Below is a comparison of different models' hallucination characteristics on our test set:
 
-| Model            | Hallucination Rate | CER   | LPIPS |
-| ---------------- | ------------------ | ----- | ----- |
-| gpt-4o           | 44.00%             | 0.034 | 0.49  |
-| gpt-4o-mini      | 78.00%             | 0.052 | 0.78  |
-| pixtral-12b-2409 | 50.00%             | 0.074 | 1.00  |
+| Model            | Hallucination Rate | CER   | LPIPS Faithfulness | LPIPS Divergence |
+| ---------------- | ------------------ | ----- | ------------------ | ---------------- |
+| gpt-4o           | 66.00%             | 0.056 | 0.86               | 0.88             |
+| gpt-4o-mini      | 84.00%             | 0.066 | 1.07               | 1.00             |
+| pixtral-12b-2409 | 50.00%             | 0.074 | 1.01               | 1.55             |
 
 Key findings:
 

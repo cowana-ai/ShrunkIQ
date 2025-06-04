@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
@@ -97,8 +98,8 @@ def probe_llm_tipping_point(
         visible_to_human = True
 
         # Initialize similarity meters
-        llm_similarity = AverageMeter('LLM Visual Similarity (LPIPS)', ':.4f')
-        ocr_similarity = AverageMeter('OCR Visual Similarity (LPIPS)', ':.4f')
+        llm_similarity = AverageMeter('LLM Faithfulness (LPIPS)', ':.4f')
+        ocr_similarity = AverageMeter('OCR Divergence (LPIPS)', ':.4f')
 
         llm_cer = AverageMeter('CER LLM (Character Error Rate)', ':.4f')
         ocr_cer = AverageMeter('CER OCR (Character Error Rate)', ':.4f')
@@ -154,7 +155,7 @@ def probe_llm_tipping_point(
                 else:
                     logger.debug("LLM unclear but image readable: increasing sharpness")
                     font_size += degradation_step_size
-                    tolerance -= 1
+                    continue
             else:
                 # here: LLM probably hallucinated by making a guess
                 tolerance -= 1
@@ -164,18 +165,19 @@ def probe_llm_tipping_point(
             logger.warning(f"No hallucination found for '{source[:30]}...' → '{target[:30]}...'")
 
 
-        similarity_score_original_target = visual_similarity(source.lower(), target.lower(), method="lpips")
+
 
         if llm_ocr_output.is_clear and not analyze_sentence_similarity_filtered(source.lower(), prediction_llm):
-            similarity_score = visual_similarity(source.lower(), prediction_llm, method="lpips")
-            similarity_score_normalized = similarity_score / similarity_score_original_target
-            llm_similarity.update(similarity_score_normalized)
+            lpips_target = visual_similarity(source.lower(), target.lower(), method="lpips")
+            lpips_llm = visual_similarity(source.lower(), prediction_llm, method="lpips")
+            lpips_llm_normalized = lpips_llm / lpips_target
+            llm_similarity.update(lpips_llm_normalized)
 
             llm_cer.update(cer(source.lower(), prediction_llm))
 
-            similarity_score = visual_similarity(source.lower(), prediction_tesseract, method="lpips")
-            similarity_score_normalized = similarity_score / similarity_score_original_target
-            ocr_similarity.update(similarity_score_normalized)
+            lpips_ocr = visual_similarity(source.lower(), prediction_tesseract, method="lpips")
+            lpips_llm_normalized = np.log10((lpips_llm + 1e-6) / (lpips_ocr + 1e-6))
+            ocr_similarity.update(lpips_llm_normalized)
 
             ocr_cer.update(cer(source.lower(), prediction_tesseract))
 
