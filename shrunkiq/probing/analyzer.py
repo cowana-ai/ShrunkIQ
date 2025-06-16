@@ -22,11 +22,11 @@ nltk.download('punkt_tab')
 nltk.download('stopwords')
 
 @dataclass
-class HallucinationPoint:
-    """Represents the point at which hallucination occurred."""
+class PredictionPoint:
     font_size: int
     compression_quality: int
     is_human_readable: bool
+    is_hallucination: bool
     llm_prediction: str
     tesseract_prediction: str
     source_text: str
@@ -34,7 +34,7 @@ class HallucinationPoint:
 
     def __str__(self) -> str:
         return (
-            f"Hallucination(font={self.font_size}, compression={self.compression_quality}, "
+            f"PredictionPoint(font={self.font_size}, compression={self.compression_quality}, "
             f"readable={self.is_human_readable})"
         )
 
@@ -63,8 +63,7 @@ class ProbeMetrics:
     # Consistency metrics
     faithfulness_metrics: dict[str, float]
 
-    # Detailed hallucination points
-    hallucination_points: list[HallucinationPoint]
+    prediction_points: list[PredictionPoint]
 
     # Error cases
     error_cases: list[dict[str, str]]

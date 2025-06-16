@@ -24,6 +24,8 @@ class AverageMeter:
         self.sum = 0
         self.count = 0
         self.avg = 0
+        self.min = float("inf")
+        self.max = - self.min
 
     def update(self, val: float, n: int = 1) -> None:
         """Update statistics with new value.
@@ -34,6 +36,8 @@ class AverageMeter:
         """
         if self.ignore_nan and math.isnan(val):
             return
+        self.min = min(self.min, val)
+        self.max = max(self.max, val)
         self.val = val
         self.sum += val * n
         self.count += n
@@ -50,7 +54,9 @@ class AverageMeter:
             'val': self.val,
             'sum': self.sum,
             'count': self.count,
-            'avg': self.avg
+            'avg': self.avg,
+            'min': self.min,
+            'max': self.max
         }
 
     def load_state_dict(self, state_dict: dict[str, Any]) -> None:
@@ -63,3 +69,5 @@ class AverageMeter:
         self.sum = state_dict['sum']
         self.count = state_dict['count']
         self.avg = state_dict['avg']
+        self.min = state_dict['min']
+        self.max = state_dict['max']

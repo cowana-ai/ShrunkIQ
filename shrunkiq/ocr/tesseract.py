@@ -26,27 +26,31 @@ class TesseractOCR(BaseOCR):
         elif os.getenv('TESSERACT_CMD') is not None:
             pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD')
 
+    def get_text_and_confidence(self, image: Image.Image) -> tuple[str, float]:
+        data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+        words = []
+        confidences = []
 
-    def extract_text(self, image: Image.Image | str, **kwargs) -> str:
+        for word, conf in zip(data["text"], data["conf"]):
+            if word.strip() != "" and conf > 0:
+                words.append(word)
+                confidences.append(conf)
+        mean_conf = sum(confidences) / len(confidences) if confidences else 0.0
+        return " ".join(words), mean_conf / 100
+
+    def extract_text(self, image: Image.Image | str, return_confidence: bool = False, **kwargs) -> str:
         """Extract text from an image using Tesseract.
 
         Args:
             image (Union[Image.Image, str]): PIL Image or path to image file
-            **kwargs: Additional arguments passed to pytesseract.image_to_string
+            **kwargs: Additional arguments
 
         Returns:
             str: Extracted text from the image
         """
         image = self._prepare_image(image)
 
-        # Override default language if provided in kwargs
-        lang = kwargs.pop('lang', self.lang)
-        config = kwargs.pop('config', self.config)
-
-        text = pytesseract.image_to_string(
-            image,
-            lang=lang,
-            config=config,
-            **kwargs
-        )
-        return text.strip()
+        text, conf = self.get_text_and_confidence(image)
+        if not return_confidence:
+            return text.strip()
+        return text.strip(), conf

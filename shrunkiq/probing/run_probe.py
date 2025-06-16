@@ -1,13 +1,12 @@
 from collections import defaultdict
 
-import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
 from shrunkiq.metrics.cer import cer
 from shrunkiq.metrics.meter import AverageMeter
 from shrunkiq.ocr import BaseOCR, TesseractOCR
-from shrunkiq.probing.analyzer import (HallucinationPoint, ProbeMetrics,
+from shrunkiq.probing.analyzer import (PredictionPoint, ProbeMetrics,
                                        analyze_readibility_from_keywords_fuzz,
                                        analyze_sentence_similarity_filtered,
                                        visual_similarity)
@@ -87,26 +86,29 @@ def probe_llm_tipping_point(
         use_compression: bool = False,
         tolerance: int = 1,
         degradation_step_size: int = 1,
-    ) -> tuple[tuple[float, float], Image.Image | None, HallucinationPoint | None]:
+    ) -> tuple[tuple[float, float], Image.Image | None, PredictionPoint]:
         """Find an image that causes hallucination matching the target."""
         logger.debug(f"Searching for hallucination: '{source[:30]}...' → '{target[:30]}...'")
         logger.debug(f"Starting at font={start_size}, compression={compress_quality}")
 
         font_size = start_size
         image = None
-        hallucination_point = None
+
+        is_hallucination = None
         visible_to_human = True
+
+        prediction_list = []
 
         # Initialize similarity meters
         llm_similarity = AverageMeter('LLM Faithfulness (LPIPS)', ':.4f')
-        ocr_similarity = AverageMeter('OCR Divergence (LPIPS)', ':.4f')
+        ocr_similarity = AverageMeter('OCR Faithfulness (LPIPS)', ':.4f')
 
         llm_cer = AverageMeter('CER LLM (Character Error Rate)', ':.4f')
         ocr_cer = AverageMeter('CER OCR (Character Error Rate)', ':.4f')
 
         while (font_size >= min_font_size or visible_to_human) and compress_quality >= 1:
             if tolerance <= 0:
-                image = None
+                # image = None
                 break
             image = generate_text_image(source, font_size=font_size)
 
@@ -115,9 +117,11 @@ def probe_llm_tipping_point(
 
             llm_ocr_output = llm_ocr.extract_text(image)
             prediction_llm = llm_ocr_output.text.lower().strip().rstrip(".,:;!?")
-            prediction_tesseract = tesseract_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
+            prediction_tesseract, tesseract_confidence = tesseract_ocr.extract_text(image, return_confidence=True)
+            prediction_tesseract = prediction_tesseract.lower().strip().rstrip(".,:;!?")
             visible_to_human = analyze_readibility_from_keywords_fuzz(keywords, prediction_tesseract)
 
+            prediction_list.append((prediction_llm, prediction_tesseract, tesseract_confidence, llm_ocr_output.is_clear))
             logger.trace(f"Testing font={font_size}, compression={compress_quality}: "
                         f"LLM='{prediction_llm[:30]}...', "
                         f"Tesseract='{prediction_tesseract[:30]}...', "
@@ -125,16 +129,8 @@ def probe_llm_tipping_point(
                         f"{llm_similarity}, {ocr_similarity}")
 
             if llm_ocr_output.is_clear and analyze_sentence_similarity_filtered(target.lower(), prediction_llm):
-                hallucination_point = HallucinationPoint(
-                    font_size=font_size,
-                    compression_quality=compress_quality,
-                    is_human_readable=visible_to_human,
-                    llm_prediction=prediction_llm,
-                    tesseract_prediction=prediction_tesseract,
-                    source_text=source,
-                    target_text=target
-                )
-                logger.info(f"Found hallucination point: {hallucination_point}")
+                is_hallucination = True
+                logger.info("Found hallucination point")
                 break
 
             elif llm_ocr_output.is_clear and analyze_sentence_similarity_filtered(source.lower(), prediction_llm):
@@ -150,7 +146,7 @@ def probe_llm_tipping_point(
             elif not llm_ocr_output.is_clear:
                 if not visible_to_human:
                     logger.debug("Both LLM and OCR cannot read: expected failure")
-                    image = None
+                    # image = None
                     break
                 else:
                     logger.debug("LLM unclear but image readable: increasing sharpness")
@@ -161,36 +157,57 @@ def probe_llm_tipping_point(
                 tolerance -= 1
                 logger.warning(f"Unknown case: {llm_ocr_output.text}, {llm_ocr_output.is_clear}, {prediction_tesseract}, {visible_to_human}, {font_size}, {compress_quality}")
 
-        if hallucination_point is None:
+        if not is_hallucination:
             logger.warning(f"No hallucination found for '{source[:30]}...' → '{target[:30]}...'")
 
+        preditction_point = PredictionPoint(
+            font_size=font_size,
+            compression_quality=compress_quality,
+            is_human_readable=visible_to_human,
+            llm_prediction=prediction_llm,
+            tesseract_prediction=prediction_tesseract,
+            is_hallucination=is_hallucination,
+            source_text=source,
+            target_text=target
+        )
+        # lpips_target = visual_similarity(source.lower(), target.lower(), method="lpips")
+        for i in range(len(prediction_list)):
+            prediction_llm, prediction_tesseract, tesseract_confidence, is_clear = prediction_list[i]
+            if not is_clear:
+                continue
 
-
-
-        if llm_ocr_output.is_clear and not analyze_sentence_similarity_filtered(source.lower(), prediction_llm):
-            lpips_target = visual_similarity(source.lower(), target.lower(), method="lpips")
             lpips_llm = visual_similarity(source.lower(), prediction_llm, method="lpips")
-            lpips_llm_normalized = lpips_llm / lpips_target
-            llm_similarity.update(lpips_llm_normalized)
-
-            llm_cer.update(cer(source.lower(), prediction_llm))
+            cer_llm = cer(source.lower(), prediction_llm)
 
             lpips_ocr = visual_similarity(source.lower(), prediction_tesseract, method="lpips")
-            lpips_llm_normalized = np.log10((lpips_llm + 1e-6) / (lpips_ocr + 1e-6))
-            ocr_similarity.update(lpips_llm_normalized)
+            cer_ocr = cer(source.lower(), prediction_tesseract)
 
-            ocr_cer.update(cer(source.lower(), prediction_tesseract))
+            lpips_llm_normalized = lpips_llm / (cer_llm + 1e-3)
+
+            llm_similarity.update(lpips_llm_normalized, n=tesseract_confidence)
+            llm_cer.update(cer_llm, n=tesseract_confidence)
+
+            # inter-model similarity
+            # agreement
+            #lpips_cross = visual_similarity(prediction_tesseract, prediction_llm, method="lpips")
+
+            lpips_ocr_normalized = lpips_ocr / (cer_ocr + 1e-3)
+
+            ocr_similarity.update(lpips_ocr_normalized, n=tesseract_confidence)
+            ocr_cer.update(cer_ocr, n=tesseract_confidence)
 
         metrics = {
             llm_similarity.name: llm_similarity.avg,
+            llm_similarity.name + " (min)": llm_similarity.min,
+            llm_similarity.name + " (max)": llm_similarity.max,
             ocr_similarity.name: ocr_similarity.avg,
             llm_cer.name: llm_cer.avg,
             ocr_cer.name: ocr_cer.avg
         }
-        return metrics, image, hallucination_point
+        return metrics, image, preditction_point
 
     # Initialize metrics collection
-    hallucination_points: list[HallucinationPoint] = []
+    prediction_points: list[PredictionPoint] = []
     error_cases: list[dict[str, str]] = []
     font_sizes: list[int] = []
     compression_qualities: list[int] = []
@@ -221,7 +238,7 @@ def probe_llm_tipping_point(
             continue
 
         # Try to find hallucination with compression
-        metrics, hallucination_image, hallucination_point = find_hallucination(
+        metrics, hallucination_image, preditction_point = find_hallucination(
             source,
             target,
             keywords,
@@ -234,18 +251,18 @@ def probe_llm_tipping_point(
             overall_metrics[metric_name].update(metric_value)
             overall_metrics[metric_name].name = metric_name
 
-        if hallucination_point is not None and isinstance(hallucination_point, HallucinationPoint):
+        if preditction_point.is_hallucination:
             successful_hallucinations += 1
-            font_sizes.append(hallucination_point.font_size)
-            compression_qualities.append(hallucination_point.compression_quality)
+            font_sizes.append(preditction_point.font_size)
+            compression_qualities.append(preditction_point.compression_quality)
 
-            if hallucination_point.is_human_readable:
+            if preditction_point.is_human_readable:
                 human_readable_count += 1
                 logger.info("Found human-readable hallucination")
             else:
                 logger.info("Found machine-only hallucination")
 
-            hallucination_points.append(hallucination_point)
+
 
         else:
             error = f"Could not find hallucination point for '{source[:50]}...' → '{target[:50]}...'"
@@ -257,6 +274,7 @@ def probe_llm_tipping_point(
                 "type": "hallucination_failure"
             })
 
+        prediction_points.append(preditction_point)
         images.append((normal_image, hallucination_image))
 
     # Compute final metrics
@@ -272,7 +290,7 @@ def probe_llm_tipping_point(
         max_hallucination_compression=max(compression_qualities) if compression_qualities else 0,
         human_readable_hallucinations=human_readable_count,
         human_unreadable_hallucinations=successful_hallucinations - human_readable_count,
-        hallucination_points=hallucination_points,
+        prediction_points=prediction_points,
         error_cases=error_cases,
         faithfulness_metrics={k: v.avg for k, v in overall_metrics.items()}
     )
