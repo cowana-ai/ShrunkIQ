@@ -31,11 +31,11 @@ This demonstrates a critical issue:
 
 Below is a comparison of different models' hallucination characteristics on our test set:
 
-| Model            | Hallucination Rate | CER   | LPIPS Faithfulness | LPIPS Divergence |
-| ---------------- | ------------------ | ----- | ------------------ | ---------------- |
-| gpt-4o           | 66.00%             | 0.056 | 0.86               | 0.88             |
-| gpt-4o-mini      | 84.00%             | 0.066 | 1.07               | 1.00             |
-| pixtral-12b-2409 | 50.00%             | 0.074 | 1.01               | 1.55             |
+| Model            | Hallucination Rate | CER   | LPIPS Faithfulness |
+| ---------------- | ------------------ | ----- | ------------------ |
+| gpt-4o           | 64.00%             | 0.009 | 0.027              |
+| gpt-4o-mini      | 78.00%             | 0.013 | 0.034              |
+| pixtral-12b-2409 | 50.00%             | 0.016 | 0.056              |
 
 Key findings:
 
@@ -171,6 +171,50 @@ To see all available options:
 shrunkiq --help
 shrunkiq evaluate --help
 ```
+
+# 🖥️ Streamlit Visualization Interface
+
+ShrunkIQ also provides an interactive web interface for LLM tipping point probing using Streamlit.
+
+## 🚀 Running the Visualization Interface
+
+```bash
+streamlit run shrunkiq/probing/visualize_probe.py
+```
+
+This will open a web interface where you can:
+
+- Configure probe parameters (font sizes, compression quality)
+- Select LLM models for OCR
+- Input test sentences manually or upload CSV files
+- Visualize probe results with interactive charts
+
+<!-- ## 📊 CSV File Format
+
+You can upload CSV files with sentence pairs for batch testing. The CSV should have the following columns:
+
+- `source`: The original text (what should be read)
+- `target`: The hallucinated text (what the LLM might predict)
+- `keywords` (optional): Comma-separated keywords for analysis
+
+**Example CSV format:**
+
+```csv
+source,target,keywords
+"She graduated from horevard university","She graduated from harvard university","horevard,harvard,university"
+"He grew up in Rana before moving to Europe","He grew up in Ghana before moving to Europe","Rana,Ghana,Europe"
+"Water boils at 10 degrees Celsius","Water boils at 100 degrees Celsius","water,boil,degrees"
+```
+
+A sample CSV file (`example_sentences.csv`) is included in the repository. -->
+
+## 🔧 Features
+
+- **Interactive Parameter Tuning**: Adjust font sizes, compression quality, and step sizes
+- **Multiple LLM Support**: Test with GPT-4o, GPT-4o-mini, or Pixtral models
+- **Batch Processing**: Upload CSV files with multiple sentence pairs
+- **Real-time Visualization**: View results with interactive plots and metrics
+- **Image Comparison**: Side-by-side comparison of normal vs hallucination images
 
 # 🤝 Contributing
 
