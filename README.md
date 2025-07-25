@@ -33,9 +33,9 @@ Below is a comparison of different models' hallucination characteristics on our 
 
 | Model            | Hallucination Rate | CER   | LPIPS Faithfulness |
 | ---------------- | ------------------ | ----- | ------------------ |
-| gpt-4o           | 64.00%             | 0.009 | 0.027              |
-| gpt-4o-mini      | 78.00%             | 0.013 | 0.034              |
-| pixtral-12b-2409 | 50.00%             | 0.016 | 0.056              |
+| gpt-4o           | 64.00%             | 0.009 | 0.0053             |
+| gpt-4o-mini      | 78.00%             | 0.013 | 0.0073             |
+| pixtral-12b-2409 | 52.00%             | 0.017 | 0.0101             |
 
 Key findings:
 
