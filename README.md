@@ -81,13 +81,6 @@ ShrunkIQ tackles this challenge by:
 3. **UX Impact Analysis**: Study how different failure modes affect user trust and workflow
 4. **Failure Mode Classification**: Categorize different types of behavioral failures
 
-## Technical Roadmap
-
-- **Enhanced Probing Framework**: More sophisticated degradation scenarios
-- **Multi-Modal Analysis**: Beyond text to include tables, charts, formulas
-- **Real-World Validation**: Testing on actual compressed documents
-- **Behavioral Benchmark Standardization**: Creating industry-standard evaluation protocols
-
 # 📦 Installation
 
 1. **Clone the repository:**
