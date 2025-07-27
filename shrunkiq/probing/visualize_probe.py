@@ -2,6 +2,7 @@ import os
 
 import nest_asyncio
 import plotly.graph_objects as go
+import polars as pl
 import streamlit as st
 from PIL import Image
 
@@ -13,6 +14,24 @@ from shrunkiq.probing.run_probe import probe_llm_tipping_point
 # Initialize asyncio
 nest_asyncio.apply()
 os.environ['STREAMLIT_SERVER_ENABLE_FILE_WATCHER'] = 'false'
+
+
+def parse_csv_sentences(uploaded_file) -> list[tuple[str, str, list[str]]]:
+    """Parse uploaded CSV file to extract sentence pairs and keywords."""
+    try:
+        # Read CSV with polars
+        df = pl.read_csv(uploaded_file)
+        sentences = []
+        for row in df.iter_rows(named=True):
+            source = row.get('source_sentence', '').strip()
+            target = row.get('hallucination_target_sentence', '').strip()
+            sentences.append((source, target))
+
+        return sentences, df
+
+    except Exception as e:
+        st.error(f"Error reading CSV file: {str(e)}")
+        return []
 
 
 def create_metrics_plot(metrics: dict) -> go.Figure:
@@ -101,16 +120,48 @@ def main():
 
     # Example sentences input
     st.sidebar.header("Test Sentences")
-    num_sentences = st.sidebar.number_input("Number of Sentence Pairs", 1, 10, 1)
+
+    # Choose input method
+    input_method = st.sidebar.radio(
+        "Choose input method:",
+        ["Manual Entry", "CSV Upload"],
+        help="Select whether to manually enter sentences or upload a CSV file"
+    )
 
     sentences = []
-    for i in range(num_sentences):
-        st.sidebar.subheader(f"Sentence Pair {i+1}")
-        source = st.sidebar.text_input(f"Source Text {i+1}", key=f"source_{i}")
-        target = st.sidebar.text_input(f"Target Text {i+1}", key=f"target_{i}")
-        keywords = st.sidebar.text_input(f"Keywords (comma-separated) {i+1}", key=f"keywords_{i}")
-        if source and target:
-            sentences.append((source, target, [k.strip() for k in keywords.split(",")]))
+
+    if input_method == "Manual Entry":
+        num_sentences = st.sidebar.number_input("Number of Sentence Pairs", 1, 10, 1)
+
+        for i in range(num_sentences):
+            st.sidebar.subheader(f"Sentence Pair {i+1}")
+            source = st.sidebar.text_input(f"Source Text {i+1}", key=f"source_{i}")
+            target = st.sidebar.text_input(f"Target Text {i+1}", key=f"target_{i}")
+            keywords = st.sidebar.text_input(f"Keywords (comma-separated) {i+1}", key=f"keywords_{i}")
+            if source and target:
+                sentences.append((source, target, [k.strip() for k in keywords.split(",")]))
+
+    else:  # CSV Upload
+
+        st.sidebar.info("Upload a CSV file with columns: 'source', 'target', 'keywords' (optional)")
+
+
+        uploaded_file = st.sidebar.file_uploader(
+            "Choose a CSV file",
+            type=['csv'],
+            help="Upload a CSV file with source, target, and optional keywords columns"
+        )
+
+        if uploaded_file is not None:
+            sentences, df = parse_csv_sentences(uploaded_file)
+            if sentences:
+                st.sidebar.success(f"Successfully loaded {len(sentences)} sentence pairs from CSV")
+                for row in df["type"].value_counts().iter_rows(named=True):
+                    st.sidebar.success(f"{row['type']}: {row['count'] / len(df)}")
+
+
+            else:
+                st.sidebar.error("No valid sentence pairs found in CSV file")
 
     if st.sidebar.button("Run Probe"):
         if not sentences:

@@ -45,6 +45,7 @@ dependencies = [
     "plotly>=6.1.2",
     "nest-asyncio>=1.6.0",
     "watchdog>=6.0.0",
+    "polars>=0.20.0",
 ]
 
 [project.scripts]

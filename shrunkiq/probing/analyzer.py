@@ -2,13 +2,14 @@ import ssl
 import string
 from dataclasses import dataclass
 
-import nltk
+from nltk import pos_tag
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from thefuzz import fuzz
 
 from shrunkiq.metrics.chamfer import compute_image_chamfer_distance
 from shrunkiq.metrics.lpips import compute_image_lpips
+from shrunkiq.probing import ensure_nltk_resources
 from shrunkiq.utils import generate_text_image
 
 try:
@@ -17,9 +18,7 @@ except AttributeError:
     pass
 else:
     ssl._create_default_https_context = _create_unverified_https_context
-# Download required resources (only once)
-nltk.download('punkt_tab')
-nltk.download('stopwords')
+ensure_nltk_resources()
 
 @dataclass
 class PredictionPoint:
@@ -147,6 +146,48 @@ def analyze_readibility_from_keywords_fuzz(keywords: list[str],
         return fuzzy_similarity >= threshold
     except Exception:
         return False, 0
+
+def analyze_readibility_from_source(source_text: str,
+                                    reconstructed_text: str,
+                                    language: str = "english",
+                                    threshold: float = 70,
+                                    return_fuzzy_similarity: bool = False) -> bool | tuple[bool, float]:
+    """Analyze the readability of a reconstructed text based on keywords.
+
+    Args:
+        keywords: List of keywords to check for in the reconstructed text
+        reconstructed_text: The reconstructed text to analyze
+
+    Returns:
+        A score between 0 and 1 indicating the readability of the text
+    """
+        # Get stopwords for the specified language
+    stop_words = set(stopwords.words(language))
+
+    def clean_and_filter(text: str) -> list[str]:
+        """Clean text and filter out stopwords and punctuation."""
+        # Remove punctuation and convert to lowercase
+        text = text.translate(str.maketrans("", "", string.punctuation)).lower()
+
+        drop_pos = ("UH", "WDT", "WP", "WRB", "MD", "EX", "IN", "CC", "DT")
+        # Tokenize and filter stopwords
+        tokens = word_tokenize(text)
+        tags = pos_tag(tokens)
+        target_words = [word for word, pos in tags if pos not in drop_pos and word not in stop_words]
+        return target_words
+
+    keywords = clean_and_filter(source_text)
+    reconstructed_text_filtered = clean_and_filter(reconstructed_text)
+    if len(reconstructed_text_filtered) == 0:
+        return False, 0
+    fuzzy_similarity = sum(max(fuzz.ratio(keyword, word) for word in reconstructed_text_filtered) for keyword in keywords) / len(keywords)
+    try:
+        if return_fuzzy_similarity:
+            return fuzzy_similarity >= threshold, fuzzy_similarity
+        return fuzzy_similarity >= threshold
+    except Exception:
+        return False, 0
+
 
 def analyze_sentence_similarity_filtered(
     source_sentence: str,

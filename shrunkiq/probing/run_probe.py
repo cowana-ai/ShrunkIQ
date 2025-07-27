@@ -7,7 +7,7 @@ from shrunkiq.metrics.cer import cer
 from shrunkiq.metrics.meter import AverageMeter
 from shrunkiq.ocr import BaseOCR, TesseractOCR
 from shrunkiq.probing.analyzer import (PredictionPoint, ProbeMetrics,
-                                       analyze_readibility_from_keywords_fuzz,
+                                       analyze_readibility_from_source,
                                        analyze_sentence_similarity_filtered,
                                        visual_similarity)
 from shrunkiq.probing.logger_config import probe_logger
@@ -34,7 +34,7 @@ def probe_llm_tipping_point(
     Args:
         llm_ocr: OCR model using LLM
         tesseract_ocr: Traditional Tesseract OCR model
-        sentences: List of (source, target, keywords) tuples to test
+        sentences: List of (source, target) tuples to test
         start_font_size: Initial font size to start testing with
         font_step_size: How much to increment/decrement font size in each iteration
         min_font_size: Minimum font size to test
@@ -63,7 +63,7 @@ def probe_llm_tipping_point(
             prediction_llm = llm_ocr.extract_text(image).text.lower().strip().rstrip(".,:;!?")
             prediction_tesseract = tesseract_ocr.extract_text(image).lower().strip().rstrip(".,:;!?")
 
-            visible_to_human = analyze_readibility_from_keywords_fuzz(keywords, prediction_tesseract)
+            visible_to_human = analyze_readibility_from_source(source, prediction_tesseract)
 
             logger.trace(f"Font {font_size}: LLM='{prediction_llm[:30]}...', "
                         f"Tesseract='{prediction_tesseract[:30]}...', Readable={visible_to_human}")
@@ -80,7 +80,6 @@ def probe_llm_tipping_point(
     def find_hallucination(
         source: str,
         target: str,
-        keywords: list[str],
         start_size: int,
         compress_quality: int,
         use_compression: bool = False,
@@ -119,7 +118,7 @@ def probe_llm_tipping_point(
             prediction_llm = llm_ocr_output.text.lower().strip().rstrip(".,:;!?")
             prediction_tesseract, tesseract_confidence = tesseract_ocr.extract_text(image, return_confidence=True)
             prediction_tesseract = prediction_tesseract.lower().strip().rstrip(".,:;!?")
-            visible_to_human = analyze_readibility_from_keywords_fuzz(keywords, prediction_tesseract)
+            visible_to_human = analyze_readibility_from_source(source, prediction_tesseract)
 
             prediction_list.append((prediction_llm, prediction_tesseract, tesseract_confidence, llm_ocr_output.is_clear))
             logger.trace(f"Testing font={font_size}, compression={compress_quality}: "
@@ -182,7 +181,7 @@ def probe_llm_tipping_point(
             lpips_ocr = visual_similarity(source.lower(), prediction_tesseract, method="lpips")
             cer_ocr = cer(source.lower(), prediction_tesseract)
 
-            lpips_llm_normalized = lpips_llm / (cer_llm + 1e-3)
+            lpips_llm_normalized = (lpips_llm + cer_llm) / 2
 
             llm_similarity.update(lpips_llm_normalized, n=tesseract_confidence)
             llm_cer.update(cer_llm, n=tesseract_confidence)
@@ -191,7 +190,7 @@ def probe_llm_tipping_point(
             # agreement
             #lpips_cross = visual_similarity(prediction_tesseract, prediction_llm, method="lpips")
 
-            lpips_ocr_normalized = lpips_ocr / (cer_ocr + 1e-3)
+            lpips_ocr_normalized = (lpips_ocr + cer_ocr) / 2
 
             ocr_similarity.update(lpips_ocr_normalized, n=tesseract_confidence)
             ocr_cer.update(cer_ocr, n=tesseract_confidence)
@@ -218,7 +217,7 @@ def probe_llm_tipping_point(
     overall_metrics = defaultdict(lambda: AverageMeter(""))
 
     images = []
-    for idx, (source, target, keywords) in enumerate(tqdm(sentences)):
+    for idx, (source, target) in enumerate(tqdm(sentences)):
         logger.info(f"Processing pair {idx+1}/{len(sentences)}")
         logger.debug(f"Source: '{source[:50]}...'")
         logger.debug(f"Target: '{target[:50]}...'")
@@ -241,7 +240,6 @@ def probe_llm_tipping_point(
         metrics, hallucination_image, preditction_point = find_hallucination(
             source,
             target,
-            keywords,
             current_font_size,
             compress_quality,
             use_compression=True
