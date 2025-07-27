@@ -2,32 +2,48 @@
 
 Smart Readability Evaluation of Compressed Documents using LLMs
 
-ShrunkIQ is a research-driven framework that evaluates how well compressed documents retain their meaning and readability — using powerful language models. It helps you quantify whether compression artifacts (especially in PDF/image-based documents) affect downstream tasks like question answering or semantic understanding.
+ShrunkIQ is a research-driven framework that evaluates **behavior rather than intelligence** of LLM-powered OCR systems. We propose a metric to measure faithfulness of OCR behavior under uncertainty (corrupted images). While intelligence is important, behavior affects user experience significantly.
 
-# 🎯 Hallucination Example
+**Intelligence is important, but behavior affects UX significantly.**
 
-Here's a concrete example of why ShrunkIQ's approach matters:
+# 🎯 Project Vision
 
-![Horevard vs Harvard Example](media/horevard.png)
+## The Problem
+
+LLMs are powerful with text — but what happens when they face dense, noisy, visual data? Traditional compression tools reduce file size, but at what cognitive cost? Low quality may distort text and structure, breaking comprehension. LLMs can "reconstruct" meaning — but this may mask real quality loss.
+
+# 🎯 The OCR Evolution Challenge
+
+LLMs are powerful with text — but what happens when they face dense, noisy, visual data?
+
+The landscape of Optical Character Recognition (OCR) has evolved dramatically:
 
 When processing this image:
+![Horevard vs Harvard Example](media/horevard.png)
 
 - **Traditional OCR (Tesseract)** correctly reads: "she graduated from horevard university"
 - **LLM (GPT-4-Vision)** hallucinates: "she graduated from harvard university"
-  ![Horevard vs Harvard Example](media/rana.png)
 
-When processing this image:
+## Behavior Over Intelligence
 
-- **Traditional OCR (Tesseract)** correctly reads: "He grew up in Rana before moving to Europe"
-- **LLM (GPT-4-Vision)** hallucinates: "He grew up in Ghana before moving to Europe"
+Rather than evaluating intelligence, we benchmark **behavior**. The framework systematically tests how LLMs respond to:
 
-This demonstrates a critical issue:
+- Font size degradation
+- Image compression artifacts
+- Visual noise and distortion
+- Controlled degradation scenarios
 
-- The LLM "corrects" the text based on its prior knowledge
-- It assumes "Horevard" must be "Harvard" because that's more likely
-- This "helpful" behavior can be dangerous in real-world applications
+## Faithfulness Under Uncertainty
 
-# 📊 Model Comparison
+We propose metrics to measure faithfulness of OCR behavior when images are corrupted or degraded. This metric captures:
+
+- Visual Alignment: How closely the model’s output reflects what is actually visible
+- Textual Accuracy: How accurately the transcribed text matches the ground truth
+- Robustness to Noise: Whether the model hallucinates content that isn’t present or overcorrects based on language priors.
+
+# 📊 Current Capabilities
+
+## Model Comparison
 
 Below is a comparison of different models' hallucination characteristics on our test set:
 
@@ -37,20 +53,18 @@ Below is a comparison of different models' hallucination characteristics on our 
 | gpt-4o-mini      | 78.00%             | 0.013 | 0.0073             |
 | pixtral-12b-2409 | 52.00%             | 0.017 | 0.0101             |
 
-Key findings:
+## Key Findings
 
 - More powerful models tend to hallucinate less
 - Higher compression qualities (> 70) generally reduce hallucination risk
-- Traditional OCR like Tesseract fails gracefully (returns no text or errors) rather than hallucinates when quality degrades
-
-*Note: For LLMs, the minimum font size and compression quality indicate thresholds below which hallucinations become frequent.*
 
 # 🚀 Why ShrunkIQ?
 
-- 🗜️ Traditional compression tools reduce file size — but at what cognitive cost?
-- 📉 Low quality may distort text and structure, breaking comprehension.
-- 🧠 LLMs can "reconstruct" meaning — but this may mask real quality loss.
-- 🔍 ShrunkIQ offers a transparent and measurable way to evaluate this tradeoff.
+- Bigger isn’t always smarter. LLM-based OCR systems often hallucinate, relying too much on language priors rather than faithfully reading what’s on the page.
+
+- We need behavioral intelligence, not just parameter count. ShrunkIQ means shrinking the illusion of intelligence to focus on what truly matters — accuracy, faithfulness, and trustworthiness in OCR.
+
+- From raw accuracy to reliable perception. Just because a model can "guess" the right word doesn’t mean it’s behaving correctly. ShrunkIQ pushes us to evaluate models by how they deal with uncertainty and noise.
 
 # 🔒 Trust, Don't Hallucinate
 
@@ -60,51 +74,26 @@ ShrunkIQ tackles this challenge by:
 - 👁️ Mimicking Human Perception:
   During evaluation, AI only sees what human would see or interpret a visually degraded document (no bias, no assumptions and no guessing).
 
-- 🧠 Answering Only What's There:
-  During evaluation, LLMs are instructed to answer only based on what human sees, not prior world knowledge.
+## Research Goals
 
-- ✅ Prioritizing Critical Information:
-  The scoring system helps ensure the most semantically important content survives compression.
+1. **Behavioral Benchmarking**: Develop comprehensive benchmarks for LLM behavior under degradation
+2. **Faithfulness Metrics**: Refine metrics for measuring consistency under uncertainty
+3. **UX Impact Analysis**: Study how different failure modes affect user trust and workflow
+4. **Failure Mode Classification**: Categorize different types of behavioral failures
 
-# 📘 Use Cases
+## Technical Roadmap
 
-- 🧪 Evaluating OCR Pipeline Robustness
-- 📉 Benchmarking Compression Algorithms on Real Tasks
-- 🎯 Unbiased Evaluation of Semantic Preservation
-- 📄 Ensuring Fidelity in Legal, Academic, and Financial Documents
-
-# 🧩 How It Works
-
-ShrunkIQ evaluates document quality by comparing a processed version (e.g., compressed) against an original version. The core workflow is as follows:
-
-1. **Establish Baseline:**
-
-   - The original, high-fidelity PDF document is processed.
-   - Text is extracted using OCR.
-   - Questions are automatically generated from the content of the original document.
-   - These questions are then answered using the extracted text from the *original* document itself.
-   - An initial evaluation (e.g., BERTScore F1, Exact Match) is performed against these generated ground-truth answers. This result becomes the **baseline performance**, accounting for any errors or limitations inherent in the OCR and QA generation process.
-
-2. **Evaluate Processed Document:**
-
-   - The processed PDF document (e.g., after compression) is subjected to the same OCR process.
-   - The *same questions* generated from the original document are used.
-   - Answers are extracted from the processed document's text.
-   - A new evaluation is performed using these answers against the ground truth established in the baseline phase.
-
-3. **Normalize and Analyze:**
-
-   - The evaluation scores from the processed document are then **normalized** against the baseline scores.
-   - This provides metrics like `normalized_bertscore_f1_mean` and `relative_degradation_bertscore_f1_mean`, which clearly indicate how much the document's understandability (as measured by the QA task) has degraded or been preserved after processing.
-
-This approach allows for a fair comparison, as it measures the *additional* loss of information due to processing, beyond the baseline imperfections of automated document understanding.
+- **Enhanced Probing Framework**: More sophisticated degradation scenarios
+- **Multi-Modal Analysis**: Beyond text to include tables, charts, formulas
+- **Real-World Validation**: Testing on actual compressed documents
+- **Behavioral Benchmark Standardization**: Creating industry-standard evaluation protocols
 
 # 📦 Installation
 
 1. **Clone the repository:**
 
    ```bash
-   git clone https://your-repository-url/ShrunkIQ.git # Replace with your actual repo URL
+   git clone https://your-repository-url/ShrunkIQ.git
    cd ShrunkIQ
    ```
 
@@ -129,54 +118,11 @@ This approach allows for a fair comparison, as it measures the *additional* loss
    uv pip install -e .
    ```
 
-# 🚀 CLI Usage
+# 🖥️ Interactive Probing Interface
 
-Once installed, ShrunkIQ provides a command-line interface for easy evaluation.
+ShrunkIQ provides an interactive web interface for LLM tipping point probing using Streamlit. This is the primary way to use ShrunkIQ for systematic behavioral analysis of LLMs under various degradation conditions.
 
-**Command Structure:**
-
-```bash
-shrunkiq [global_options] evaluate <original_pdf_path> --compressed_pdf <compressed_pdf_path> [evaluate_options]
-```
-
-**Global Options:**
-
-- `--env_path <path_to_env_file>`: Path to a custom `.env` file for loading environment variables (e.g., API keys). If not provided, it defaults to looking for a `.env` file in the current or parent directories.
-
-**`evaluate` Command Arguments & Options:**
-
-- `<original_pdf_path>`: (Required) Path to the original, high-fidelity PDF file.
-- `--compressed_pdf <path>` or `-c <path>`: (Required) Path to the compressed or processed PDF file to be evaluated.
-- `--num_questions_per_page <int>` or `-n <int>`: (Optional) Number of questions to generate per page for the ground truth. Default: `3`.
-- `--zoom <float>` or `-z <float>`: (Optional) Zoom factor for OCR rendering when processing PDFs. Default: `2.0`.
-
-**Example:**
-
-```bash
-shrunkiq evaluate ./docs/original_report.pdf \
-  --compressed_pdf ./docs/compressed_report_q50.pdf \
-  -n 5 \
-  -z 2.0
-```
-
-This command will:
-
-1. Establish a baseline using `original_report.pdf`, generating 5 questions per page with an OCR zoom factor of 2.0.
-2. Evaluate `compressed_report_q50.pdf` against this baseline using the same zoom factor.
-3. Print the baseline metrics, followed by the normalized and relative degradation metrics for the compressed document.
-
-To see all available options:
-
-```bash
-shrunkiq --help
-shrunkiq evaluate --help
-```
-
-# 🖥️ Streamlit Visualization Interface
-
-ShrunkIQ also provides an interactive web interface for LLM tipping point probing using Streamlit.
-
-## 🚀 Running the Visualization Interface
+## Running the Interface
 
 ```bash
 streamlit run shrunkiq/probing/visualize_probe.py
@@ -189,24 +135,13 @@ This will open a web interface where you can:
 - Input test sentences manually or upload CSV files
 - Visualize probe results with interactive charts
 
-<!-- ## 📊 CSV File Format
+## 📊 CSV File Format
 
 You can upload CSV files with sentence pairs for batch testing. The CSV should have the following columns:
 
-- `source`: The original text (what should be read)
-- `target`: The hallucinated text (what the LLM might predict)
-- `keywords` (optional): Comma-separated keywords for analysis
-
-**Example CSV format:**
-
-```csv
-source,target,keywords
-"She graduated from horevard university","She graduated from harvard university","horevard,harvard,university"
-"He grew up in Rana before moving to Europe","He grew up in Ghana before moving to Europe","Rana,Ghana,Europe"
-"Water boils at 10 degrees Celsius","Water boils at 100 degrees Celsius","water,boil,degrees"
-```
-
-A sample CSV file (`example_sentences.csv`) is included in the repository. -->
+- `source_sentence`: The original text (what should be read)
+- `hallucination_target_sentence`: The hallucinated text (what the LLM might predict)
+- `type` (optional): Category of hallucination (e.g., "factual bias", "cultural bias")
 
 ## 🔧 Features
 
@@ -215,6 +150,7 @@ A sample CSV file (`example_sentences.csv`) is included in the repository. -->
 - **Batch Processing**: Upload CSV files with multiple sentence pairs
 - **Real-time Visualization**: View results with interactive plots and metrics
 - **Image Comparison**: Side-by-side comparison of normal vs hallucination images
+- **Systematic Probing**: Methodically test LLM behavior under controlled degradation conditions
 
 # 🤝 Contributing
 
