@@ -6,6 +6,22 @@ ShrunkIQ is a research-driven framework that evaluates **behavior rather than in
 
 **Intelligence is important, but behavior affects UX significantly.**
 
+# ⚠️ Important Note About Evaluation Data
+
+**All samples in our evaluation data are intentionally made up and do not make sense.** The purpose is to test **behavior** and **faithfulness**, not correctness or factual accuracy.
+
+For example:
+
+- "She graduated from horevard university" → "She graduated from harvard university"
+
+These examples are designed to:
+
+- Test whether models hallucinate based on language priors
+- Evaluate faithfulness to what's actually visible vs. what "should" be there
+- Measure behavioral consistency under uncertainty
+
+**The goal is not to test if the model knows the correct answer, but whether it faithfully reports what is seen.**
+
 # 🎯 Project Vision
 
 ## The Problem
